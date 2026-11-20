@@ -267,9 +267,9 @@
  "posterize4": "7fcbf00c",
  "resize": "900fe1a5",
  "prepared": {
-  "width": 25,
+  "width": 20,
   "height": 30,
-  "hash": "e02843ee"
+  "hash": "1e177c05"
  },
  "renders": {
   "original": "6a3d39de",
@@ -831,6 +831,10 @@
    "title": "Prepare the page",
    "instruction": "Place your paper in landscape orientation. Leave a border of about 1.5 cm. Your drawing will fill an area about 24.0 cm wide and 18.0 cm tall. Lightly mark the top, bottom, left and right edges of that area with tiny dots.",
    "tip": "Press very lightly. These marks are only guides and will be erased later.",
+   "checks": [
+    "Are the four edge marks about 24.0 cm apart side to side and 18.0 cm top to bottom?",
+    "Is there an even border all around?"
+   ],
    "base": "none",
    "layers": [
     "frame",
@@ -847,6 +851,10 @@
    "title": "Block in basic shapes",
    "instruction": "Look for simple shapes inside the picture. Start with a large circle near the left side, a large box near the left side and a medium circle near the left side. Draw each one as a loose, light outline. Don't worry about details yet.",
    "tip": "Hold the pencil further from the tip and draw from your shoulder for smoother ovals.",
+   "checks": [
+    "Do you have a large circle near the left side, a large box near the left side and a medium circle near the left side?",
+    "Are your lines light enough to erase?"
+   ],
    "base": "light",
    "layers": [
     "frame",
@@ -863,6 +871,10 @@
    "title": "Check proportions",
    "instruction": "The whole subject is about 2.0 times as wide as it is tall. Compare your shapes: the large circle is about twice the size of the large box. Fix any shape that looks too big, too small or out of place before moving on.",
    "tip": "Hold your pencil at arm's length and use it like a ruler to compare sizes.",
+   "checks": [
+    "Is the whole drawing about 2.0 times as wide as it is tall?",
+    "Squint at your paper and the guide. Do the big shapes match?"
+   ],
    "base": "light",
    "layers": [
     "frame",
@@ -881,6 +893,10 @@
    "title": "Draw the main outline",
    "instruction": "Now follow the outside edge of the subject (its silhouette). Begin at the top left and travel around the shape. The outline has 8 noticeable turns. Use your basic shapes as a frame.",
    "tip": "Use several short strokes instead of one long line; it's easier to stay on track.",
+   "checks": [
+    "Does your outline start near the top left?",
+    "Does the outline stay close to your basic shapes?"
+   ],
    "base": "light",
    "layers": [
     "shapes",
@@ -897,6 +913,9 @@
    "title": "Add the big inner shapes",
    "instruction": "Inside the outline there are 3 large areas with clear edges. The biggest one sits near the left side. Draw their boundaries lightly.",
    "tip": "Squint at the reference: squinting hides small details and shows the big shapes.",
+   "checks": [
+    "Did you place the biggest inner shape near the left side?"
+   ],
    "base": "light",
    "layers": [
     "silhouette",
@@ -912,6 +931,10 @@
    "title": "Refine features",
    "instruction": "Add the smaller edges and features. Most of the detail is near the top left. Work from the largest features to the smallest, checking each one against the guide.",
    "tip": "Turn the paper as you draw so your hand moves in a comfortable direction.",
+   "checks": [
+    "Is most of your detail near the top left, like in the guide?",
+    "Did you work from big features to small ones?"
+   ],
    "base": "outline",
    "layers": [
     "silhouette",
@@ -929,6 +952,10 @@
    "title": "Clean up the sketch",
    "instruction": "Gently erase the construction shapes and the page marks you no longer need. Then go over the lines you want to keep with a slightly firmer stroke.",
    "tip": "A kneaded eraser lifts graphite without damaging the paper.",
+   "checks": [
+    "Are the construction lines gone or very faint?",
+    "Are the important outlines a little darker now?"
+   ],
    "base": "outline",
    "layers": [
     "silhouette",
@@ -944,6 +971,10 @@
    "title": "Shadows and values",
    "instruction": "The light seems to come from the right side, so the shadows fall on the opposite side. The darkest areas are near the left side. Shade the dark shapes first, then the middle tones. Leave the brightest areas as clean paper.",
    "tip": "Build darkness slowly with light layers instead of pressing hard.",
+   "checks": [
+    "Are your darkest areas near the left side?",
+    "Did you leave the brightest spots as clean paper?"
+   ],
    "base": "values",
    "layers": [
     "silhouette",
@@ -961,6 +992,9 @@
    "title": "Final details",
    "instruction": "Add texture, small accents and sharp dark touches where the reference shows them, mostly around the top left. Stop when it looks finished to you; not every detail needs to be drawn.",
    "tip": "Step back from your drawing every few minutes to see it as a whole.",
+   "checks": [
+    "Step back: does the drawing read well from a distance?"
+   ],
    "base": "sketch",
    "layers": [],
    "terms": [

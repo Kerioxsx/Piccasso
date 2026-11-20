@@ -377,13 +377,13 @@ export function posterizeLevels(g, levels) {
 }
 
 /**
- * Apply the project's preparation settings (crop → rotate → flip → resize →
+ * Apply the project's preparation settings (rotate → flip → crop → resize →
  * brightness/contrast) and return an opaque RGBA image no larger than maxDim.
  */
 export function prepareImage(src, prep, maxDim) {
-  let img = crop(src, prep.crop);
-  img = rotate(img, prep.rotation || 0);
+  let img = rotate(src, prep.rotation || 0);
   img = flip(img, !!prep.flipH, !!prep.flipV);
+  img = crop(img, prep.crop); // crop rect is relative to the rotated/flipped image
   const [w, h] = fitDims(img.width, img.height, maxDim);
   img = resizeBox(img, w, h);
   return adjust(img, prep.brightness || 0, prep.contrast || 0);

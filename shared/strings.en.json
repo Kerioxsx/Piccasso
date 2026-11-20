@@ -35,47 +35,81 @@
     "page": {
       "title": "Prepare the page",
       "instruction": "Place your paper in {orient} orientation. Leave a border of about {marginCm} cm. Your drawing will fill an area about {drawWcm} cm wide and {drawHcm} cm tall. Lightly mark the top, bottom, left and right edges of that area with tiny dots.",
-      "tip": "Press very lightly. These marks are only guides and will be erased later."
+      "tip": "Press very lightly. These marks are only guides and will be erased later.",
+      "checks": [
+        "Are the four edge marks about {drawWcm} cm apart side to side and {drawHcm} cm top to bottom?",
+        "Is there an even border all around?"
+      ]
     },
     "shapes": {
       "title": "Block in basic shapes",
       "instruction": "Look for simple shapes inside the picture. Start with {shapeList}. Draw each one as a loose, light outline. Don't worry about details yet.",
-      "tip": "Hold the pencil further from the tip and draw from your shoulder for smoother ovals."
+      "tip": "Hold the pencil further from the tip and draw from your shoulder for smoother ovals.",
+      "checks": [
+        "Do you have {shapeList}?",
+        "Are your lines light enough to erase?"
+      ]
     },
     "proportions": {
       "title": "Check proportions",
       "instruction": "The whole subject is {aspectPhrase}. Compare your shapes: {compareList}. Fix any shape that looks too big, too small or out of place before moving on.",
-      "tip": "Hold your pencil at arm's length and use it like a ruler to compare sizes."
+      "tip": "Hold your pencil at arm's length and use it like a ruler to compare sizes.",
+      "checks": [
+        "Is the whole drawing {aspectPhrase}?",
+        "Squint at your paper and the guide. Do the big shapes match?"
+      ]
     },
     "contours": {
       "title": "Draw the main outline",
       "instruction": "Now follow the outside edge of the subject (its silhouette). Begin at {startPos} and travel around the shape. The outline has {cornerCount} noticeable turns. Use your basic shapes as a frame.",
-      "tip": "Use several short strokes instead of one long line; it's easier to stay on track."
+      "tip": "Use several short strokes instead of one long line; it's easier to stay on track.",
+      "checks": [
+        "Does your outline start near {startPos}?",
+        "Does the outline stay close to your basic shapes?"
+      ]
     },
     "forms": {
       "title": "Add the big inner shapes",
       "instruction": "Inside the outline there are {internalCount} large areas with clear edges. The biggest one sits near {internalPos}. Draw their boundaries lightly.",
-      "tip": "Squint at the reference: squinting hides small details and shows the big shapes."
+      "tip": "Squint at the reference: squinting hides small details and shows the big shapes.",
+      "checks": [
+        "Did you place the biggest inner shape near {internalPos}?"
+      ]
     },
     "features": {
       "title": "Refine features",
       "instruction": "Add the smaller edges and features. Most of the detail is near {detailPos}. Work from the largest features to the smallest, checking each one against the guide.",
-      "tip": "Turn the paper as you draw so your hand moves in a comfortable direction."
+      "tip": "Turn the paper as you draw so your hand moves in a comfortable direction.",
+      "checks": [
+        "Is most of your detail near {detailPos}, like in the guide?",
+        "Did you work from big features to small ones?"
+      ]
     },
     "clean": {
       "title": "Clean up the sketch",
       "instruction": "Gently erase the construction shapes and the page marks you no longer need. Then go over the lines you want to keep with a slightly firmer stroke.",
-      "tip": "A kneaded eraser lifts graphite without damaging the paper."
+      "tip": "A kneaded eraser lifts graphite without damaging the paper.",
+      "checks": [
+        "Are the construction lines gone or very faint?",
+        "Are the important outlines a little darker now?"
+      ]
     },
     "values": {
       "title": "Shadows and values",
       "instruction": "{lightSentence} The darkest areas are near {darkPos}. Shade the dark shapes first, then the middle tones. Leave the brightest areas as clean paper.",
-      "tip": "Build darkness slowly with light layers instead of pressing hard."
+      "tip": "Build darkness slowly with light layers instead of pressing hard.",
+      "checks": [
+        "Are your darkest areas near {darkPos}?",
+        "Did you leave the brightest spots as clean paper?"
+      ]
     },
     "details": {
       "title": "Final details",
       "instruction": "Add texture, small accents and sharp dark touches where the reference shows them, mostly around {detailPos}. Stop when it looks finished to you; not every detail needs to be drawn.",
-      "tip": "Step back from your drawing every few minutes to see it as a whole."
+      "tip": "Step back from your drawing every few minutes to see it as a whole.",
+      "checks": [
+        "Step back: does the drawing read well from a distance?"
+      ]
     }
   },
   "compareItem": "the {a} {kindA} is {ratio} the {b} {kindB}",
@@ -101,5 +135,12 @@
     "good": "Nice work! The overall size and placement closely match the guide.",
     "empty": "We couldn't find pencil lines in the photo. Try a brighter, sharper photo taken straight above the paper."
   },
-  "shapePhrase": "a {size} {kind} near {pos}"
+  "shapePhrase": "a {size} {kind} near {pos}",
+  "manualSteps": {
+    "page": "Decide how big your drawing will be and lightly mark its top, bottom, left and right edges on the paper. Leave a border all around.",
+    "contours": "Look at the picture and draw the biggest outside edges first, very lightly. Compare sizes as you go.",
+    "clean": "Erase lines you don't need and make the important outlines a little darker.",
+    "values": "Squint at the picture to find the darkest areas. Shade those first, then the middle tones. Leave the brightest parts white.",
+    "details": "Add small details and textures last. Stop when you're happy with it."
+  }
 }

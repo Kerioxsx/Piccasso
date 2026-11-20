@@ -1,0 +1,15 @@
+{
+  "name": "drawstep",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DrawStep – AI drawing coach (web PWA + Rust desktop). No npm dependencies.",
+  "type": "module",
+  "scripts": {
+    "serve": "python3 -m http.server 8080 -d web",
+    "test": "node --test web/tests/*.test.mjs",
+    "test:e2e": "node web/tests/e2e/smoke.mjs",
+    "data": "node tools/sync-shared.mjs && node tools/make-vectors.mjs && node tools/make-demo.mjs",
+    "icons": "node tools/make-icons.mjs"
+  },
+  "engines": { "node": ">=20" }
+}

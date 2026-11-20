@@ -129,6 +129,7 @@ export function generateSteps(analysis, prep, shared) {
     if (kind === 'contours' && analysis.silhouettes.length === 0) { base = 'outline'; layers = ['shapes']; }
     return {
       id: `step-${i + 1}-${kind}`, kind, title: T.title, instruction, tip: T.tip,
+      checks: (T.checks || []).map((c) => fill(c, vars)),
       base, layers, terms: (shared.glossary.stepTerms[kind] || []).slice(),
     };
   });
