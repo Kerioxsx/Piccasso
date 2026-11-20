@@ -137,12 +137,101 @@ pub fn cover_mask(mask: &[u8], w: usize, h: usize, spacing: f64) -> Vec<Path> {
 fn layer_paths(mask: &[u8], tw: usize, th: usize, brush_px: f64, spacing: f64, fine: bool) -> (Vec<Path>, Vec<Path>) {
     let r = ((brush_px / 2.0).floor() as usize).saturating_sub(1);
     let inner = erode(mask, tw, th, r);
-    let paths = cover_mask(&inner, tw, th, spacing);
+    let paths = region_strokes(&inner, tw, th, spacing, spacing <= brush_px, (brush_px * brush_px / 4.0) as u64);
     if !fine { return (paths, vec![]); }
     let mut cov = vec![0u8; tw * th];
     for p in &paths { stamp_path(&mut cov, tw, th, p, brush_px / 2.0); }
     let left: Vec<u8> = (0..tw * th).map(|i| (mask[i] != 0 && cov[i] == 0) as u8).collect();
     (paths, centre_strokes(&left, tw, th))
+}
+
+/// Paint each connected region like a person would: trace its outline first (so
+/// the edge is smooth and lands exactly on the boundary), then fill the inside
+/// row by row without lifting, travelling between rows only through the region
+/// itself. One region = one stroke, so programs that cap opacity per stroke
+/// never darken overlaps, and there are no staircase row ends on the edges.
+pub fn region_strokes(inner: &[u8], tw: usize, th: usize, spacing: f64, outline: bool, min_area: u64) -> Vec<Path> {
+    let (labels, comps) = crate::imgproc::label_components(inner, tw, th);
+    let mut out = Vec::new();
+    for c in &comps {
+        let (x0, y0) = (c.min_x, c.min_y);
+        let (bw, bh) = (c.max_x - c.min_x + 1, c.max_y - c.min_y + 1);
+        let mut m = vec![0u8; bw * bh];
+        for y in 0..bh { for x in 0..bw { m[y * bw + x] = (labels[(y0 + y) * tw + x0 + x] == c.label) as u8; } }
+        // specks smaller than the brush would become blobs bigger than themselves;
+        // real thin features are drawn by the fine (line brush) pass instead
+        if c.area < min_area.max(1) { continue; }
+        // pieces: the outline ring first, then serpentine fill pieces
+        let mut pieces: Vec<Vec<[f64; 2]>> = Vec::new();
+        if outline {
+            let core = erode(&m, bw, bh, 1);
+            let ring: Vec<u8> = (0..bw * bh).map(|i| (m[i] != 0 && core[i] == 0) as u8).collect();
+            for p in trace_skeleton(&ring, bw, bh, 1) {
+                pieces.push(douglas_peucker(&p, 0.5, false).into_iter().map(|q| [q[0] + 0.5, q[1] + 0.5]).collect());
+            }
+        }
+        pieces.extend(cover_mask(&m, bw, bh, spacing));
+        pieces.retain(|p| !p.is_empty());
+        // chain all pieces into one stroke, connecting through the region (BFS)
+        let px = |q: [f64; 2]| -> usize { let x = (q[0] as usize).min(bw - 1); let y = (q[1] as usize).min(bh - 1); y * bw + x };
+        let mut stroke: Vec<[f64; 2]> = Vec::new();
+        let mut cur: Option<usize> = None;
+        let mut dist = vec![u32::MAX; bw * bh];
+        let mut parent = vec![usize::MAX; bw * bh];
+        let mut queue = std::collections::VecDeque::new();
+        while !pieces.is_empty() {
+            let (bi, rev) = match cur {
+                None => (0, false),
+                Some(start) => {
+                    dist.iter_mut().for_each(|d| *d = u32::MAX);
+                    queue.clear();
+                    dist[start] = 0;
+                    parent[start] = usize::MAX;
+                    queue.push_back(start);
+                    while let Some(i) = queue.pop_front() {
+                        let (x, y) = ((i % bw) as i64, (i / bw) as i64);
+                        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)] {
+                            let (nx, ny) = (x + dx, y + dy);
+                            if nx < 0 || ny < 0 || nx >= bw as i64 || ny >= bh as i64 { continue; }
+                            let j = ny as usize * bw + nx as usize;
+                            if m[j] == 0 || dist[j] != u32::MAX { continue; }
+                            dist[j] = dist[i] + 1;
+                            parent[j] = i;
+                            queue.push_back(j);
+                        }
+                    }
+                    let mut best = (0usize, false, u32::MAX);
+                    for (k, p) in pieces.iter().enumerate() {
+                        let (a, b) = (dist[px(p[0])], dist[px(p[p.len() - 1])]);
+                        if a < best.2 { best = (k, false, a); }
+                        if b < best.2 { best = (k, true, b); }
+                    }
+                    if best.2 == u32::MAX {
+                        // not reachable: finish this stroke, start another
+                        if !stroke.is_empty() { out.push(std::mem::take(&mut stroke).into_iter().map(|q| [q[0] + x0 as f64, q[1] + y0 as f64]).collect()); }
+                        cur = None;
+                        continue;
+                    }
+                    // connector: parent chain from the chosen endpoint back to `start`
+                    let p = &pieces[best.0];
+                    let target = if best.1 { px(p[p.len() - 1]) } else { px(p[0]) };
+                    let mut chain = Vec::new();
+                    let mut i = target;
+                    while i != usize::MAX && i != start { chain.push([(i % bw) as f64 + 0.5, (i / bw) as f64 + 0.5]); i = parent[i]; }
+                    chain.reverse();
+                    let chain = if chain.len() > 2 { douglas_peucker(&chain, 0.5, false) } else { chain };
+                    stroke.extend(chain);
+                    (best.0, best.1)
+                }
+            };
+            let mut p = pieces.swap_remove(bi);
+            if rev { p.reverse(); }
+            cur = Some(px(p[p.len() - 1]));
+            stroke.extend(p);
+        }
+        if !stroke.is_empty() { out.push(stroke.into_iter().map(|q| [q[0] + x0 as f64, q[1] + y0 as f64]).collect()); }
+    }
+    out
 }
 
 /// Centre-line strokes for a thin mask (skeleton), plus dots for isolated specks.
