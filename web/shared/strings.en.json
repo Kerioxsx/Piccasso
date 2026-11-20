@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "lang": "en",
+  "positions": {
+    "tl": "the top left",
+    "tc": "the top",
+    "tr": "the top right",
+    "ml": "the left side",
+    "mc": "the middle",
+    "mr": "the right side",
+    "bl": "the bottom left",
+    "bc": "the bottom",
+    "br": "the bottom right"
+  },
+  "sizes": [
+    "large",
+    "medium",
+    "small"
+  ],
+  "shapeKinds": {
+    "ellipse": "oval",
+    "circle": "circle",
+    "box": "box"
+  },
+  "aspect": {
+    "taller": "about {r} times as tall as it is wide",
+    "wider": "about {r} times as wide as it is tall",
+    "square": "about as tall as it is wide"
+  },
+  "light": {
+    "even": "The light is fairly even, so shadows are soft and spread out.",
+    "dir": "The light seems to come from {dir}, so the shadows fall on the opposite side."
+  },
+  "steps": {
+    "page": {
+      "title": "Prepare the page",
+      "instruction": "Place your paper in {orient} orientation. Leave a border of about {marginCm} cm. Your drawing will fill an area about {drawWcm} cm wide and {drawHcm} cm tall. Lightly mark the top, bottom, left and right edges of that area with tiny dots.",
+      "tip": "Press very lightly. These marks are only guides and will be erased later."
+    },
+    "shapes": {
+      "title": "Block in basic shapes",
+      "instruction": "Look for simple shapes inside the picture. Start with {shapeList}. Draw each one as a loose, light outline. Don't worry about details yet.",
+      "tip": "Hold the pencil further from the tip and draw from your shoulder for smoother ovals."
+    },
+    "proportions": {
+      "title": "Check proportions",
+      "instruction": "The whole subject is {aspectPhrase}. Compare your shapes: {compareList}. Fix any shape that looks too big, too small or out of place before moving on.",
+      "tip": "Hold your pencil at arm's length and use it like a ruler to compare sizes."
+    },
+    "contours": {
+      "title": "Draw the main outline",
+      "instruction": "Now follow the outside edge of the subject (its silhouette). Begin at {startPos} and travel around the shape. The outline has {cornerCount} noticeable turns. Use your basic shapes as a frame.",
+      "tip": "Use several short strokes instead of one long line; it's easier to stay on track."
+    },
+    "forms": {
+      "title": "Add the big inner shapes",
+      "instruction": "Inside the outline there are {internalCount} large areas with clear edges. The biggest one sits near {internalPos}. Draw their boundaries lightly.",
+      "tip": "Squint at the reference: squinting hides small details and shows the big shapes."
+    },
+    "features": {
+      "title": "Refine features",
+      "instruction": "Add the smaller edges and features. Most of the detail is near {detailPos}. Work from the largest features to the smallest, checking each one against the guide.",
+      "tip": "Turn the paper as you draw so your hand moves in a comfortable direction."
+    },
+    "clean": {
+      "title": "Clean up the sketch",
+      "instruction": "Gently erase the construction shapes and the page marks you no longer need. Then go over the lines you want to keep with a slightly firmer stroke.",
+      "tip": "A kneaded eraser lifts graphite without damaging the paper."
+    },
+    "values": {
+      "title": "Shadows and values",
+      "instruction": "{lightSentence} The darkest areas are near {darkPos}. Shade the dark shapes first, then the middle tones. Leave the brightest areas as clean paper.",
+      "tip": "Build darkness slowly with light layers instead of pressing hard."
+    },
+    "details": {
+      "title": "Final details",
+      "instruction": "Add texture, small accents and sharp dark touches where the reference shows them, mostly around {detailPos}. Stop when it looks finished to you; not every detail needs to be drawn.",
+      "tip": "Step back from your drawing every few minutes to see it as a whole."
+    }
+  },
+  "compareItem": "the {a} {kindA} is {ratio} the {b} {kindB}",
+  "compareSingle": "your main shape should be {aspectPhrase}",
+  "ratioWords": {
+    "same": "about the same size as",
+    "twice": "about twice the size of",
+    "x": "about {n} times the size of"
+  },
+  "fallback": {
+    "lowContrast": "The picture has low contrast, so the main subject could not be separated from the background automatically. The steps use the whole picture as the subject; try increasing contrast or cropping closer."
+  },
+  "compare": {
+    "wider": "Your drawing looks about {pct}% wider than the guide. Try bringing the left and right edges in a little.",
+    "narrower": "Your drawing looks about {pct}% narrower than the guide. Try widening it slightly.",
+    "taller": "Your drawing looks about {pct}% taller than the guide.",
+    "shorter": "Your drawing looks about {pct}% shorter than the guide.",
+    "shiftLeft": "Your drawing sits a bit to the left of where the guide places it.",
+    "shiftRight": "Your drawing sits a bit to the right of where the guide places it.",
+    "shiftUp": "Your drawing sits a bit higher on the page than the guide.",
+    "shiftDown": "Your drawing sits a bit lower on the page than the guide.",
+    "sparse": "Around {pos} the guide has lines that your drawing doesn't show yet.",
+    "good": "Nice work! The overall size and placement closely match the guide.",
+    "empty": "We couldn't find pencil lines in the photo. Try a brighter, sharper photo taken straight above the paper."
+  },
+  "shapePhrase": "a {size} {kind} near {pos}"
+}

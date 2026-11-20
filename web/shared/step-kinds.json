@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "kinds": [
+    { "id": "page",        "base": "none",     "layers": ["frame", "subjectBox", "grid"] },
+    { "id": "shapes",      "base": "light",    "layers": ["frame", "subjectBox", "shapes"] },
+    { "id": "proportions", "base": "light",    "layers": ["frame", "subjectBox", "shapes", "measures"] },
+    { "id": "contours",    "base": "light",    "layers": ["shapes", "silhouette"] },
+    { "id": "forms",       "base": "light",    "layers": ["silhouette", "internal"] },
+    { "id": "features",    "base": "outline",  "layers": ["silhouette", "internal", "landmarks"] },
+    { "id": "clean",       "base": "outline",  "layers": ["silhouette", "internal"] },
+    { "id": "values",      "base": "values",   "layers": ["silhouette", "light"] },
+    { "id": "details",     "base": "sketch",   "layers": [] }
+  ]
+}

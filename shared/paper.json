@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "presets": [
+    { "id": "a4",        "label": "A4",                 "widthMm": 210, "heightMm": 297 },
+    { "id": "a5",        "label": "A5",                 "widthMm": 148, "heightMm": 210 },
+    { "id": "letter",    "label": "US Letter",          "widthMm": 216, "heightMm": 279 },
+    { "id": "sketch9x12","label": "Sketchbook 9×12 in", "widthMm": 229, "heightMm": 305 },
+    { "id": "square",    "label": "Square 20 cm",       "widthMm": 200, "heightMm": 200 }
+  ],
+  "defaultMarginMm": 15
+}
