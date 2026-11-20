@@ -16,3 +16,14 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libgtk-3-dev
       - run: cargo test --workspace
         working-directory: rust
+  rust-desktop-builds:
+    # the macOS and Windows screen-capture and keyboard code only compiles there
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo check -p piccasso-app
+        working-directory: rust

@@ -338,3 +338,151 @@ fn depth_mode_reproduces_gradients_and_fine_lines() {
     assert!(longest > w as f64 * 0.8, "line drawn as one long stroke, got {longest}");
     assert_eq!(fine[0].brush, 1.0);
 }
+
+#[test]
+fn pen_timing_keeps_sampled_strokes_on_the_path() {
+    use piccasso_core::penpath::*;
+    // a circle of radius 30 px, a zigzag with sharp corners, and a serpentine fill
+    let circle: Vec<[f64; 2]> = (0..=120).map(|i| { let a = i as f64 / 120.0 * std::f64::consts::TAU; [100.0 + 30.0 * a.cos(), 100.0 + 30.0 * a.sin()] }).collect();
+    let zig: Vec<[f64; 2]> = (0..12).map(|i| [i as f64 * 15.0, if i % 2 == 0 { 0.0 } else { 40.0 }]).collect();
+    let mut serp = Vec::new();
+    for r in 0..10 { let y = r as f64 * 4.0; if r % 2 == 0 { serp.push([0.0, y]); serp.push([200.0, y]); } else { serp.push([200.0, y]); serp.push([0.0, y]); } }
+    let lim = PenLimits { speed: 4000.0, hz: 60.0, tol: 0.5, ramp_px: 40.0 };
+    for path in [&circle, &zig, &serp] {
+        let t = timed_points(path, &lim, 0.001);
+        let err = sampled_error(path, &t, 0.001, lim.hz);
+        assert!(err <= 1.0, "sampled error {err}");
+        // straight runs still go fast: total time well below a fixed-dwell pen
+        assert!(t.len() as f64 * 0.001 < 3.0, "too slow");
+    }
+    // naive constant-speed motion at the same top speed would cut corners badly
+    let naive: Vec<[f64; 2]> = piccasso_core::strokes::densify(&zig, 4000.0 * 0.001);
+    assert!(sampled_error(&zig, &naive, 0.001, 60.0) > 5.0);
+}
+
+#[test]
+fn replica_detail_and_colour() {
+    use piccasso_core::replica::*;
+    use piccasso_core::imgproc::Rgba;
+    // white paper, a 1 px dark line, a green disc and a gray block
+    let (w, h) = (240, 240);
+    let mut d = vec![255u8; w * h * 4];
+    for y in 0..h { for x in 0..w {
+        let i = (y * w + x) * 4;
+        if x == 60 && y > 20 && y < 220 { d[i] = 20; d[i + 1] = 20; d[i + 2] = 20; }
+        if (x as i32 - 160).pow(2) + (y as i32 - 70).pow(2) < 900 { d[i] = 60; d[i + 1] = 190; d[i + 2] = 50; }
+        if x > 120 && x < 220 && y > 140 && y < 220 { d[i] = 120; d[i + 1] = 120; d[i + 2] = 120; }
+    } }
+    let img = Rgba { width: w, height: h, data: d };
+    // black: the thin line becomes one smooth line stroke at near-full darkness
+    let o = ReplicaOptions { brush_px: 4.0, glaze: Some(0.25), line_brush_px: Some(1.0), lines: false, ..Default::default() };
+    let plan = plan_replica(&img, None, 80, 80, &o);
+    let line_layers: Vec<_> = plan.layers.iter().filter(|l| l.fine && l.opacity >= 0.8).collect();
+    assert!(!line_layers.is_empty());
+    let longest = line_layers.iter().flat_map(|l| l.paths.iter()).map(|p| p.windows(2).map(|s| (s[1][0]-s[0][0]).hypot(s[1][1]-s[0][1])).sum::<f64>()).fold(0.0, f64::max);
+    assert!(longest > 55.0, "line length {longest}");
+    // colour: the green disc keeps a green paint
+    let oc = ReplicaOptions { brush_px: 4.0, line_brush_px: Some(1.0), colors: 4, lines: false, ..Default::default() };
+    let pc = plan_replica(&img, None, 80, 80, &oc);
+    let pal = plan_palette(&pc);
+    assert!(pal.iter().any(|c| c[1] as i32 - c[0] as i32 > 80 && c[1] as i32 - c[2] as i32 > 80), "{pal:?}");
+    let sim = simulate_rgb(&pc, true);
+    let src = piccasso_core::imgproc::resize_box(&img, 80, 80);
+    assert!(mean_error_rgb(&sim, &src) < 12.0, "{}", mean_error_rgb(&sim, &src));
+}
+
+fn hsv_rgb(h: f64, s: f64, v: f64) -> [u8; 3] {
+    let c = v * s;
+    let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+    let m = v - c;
+    let (r, g, b) = match (h / 60.0) as i32 { 0 => (c, x, 0.0), 1 => (x, c, 0.0), 2 => (0.0, c, x), 3 => (0.0, x, c), 4 => (x, 0.0, c), _ => (c, 0.0, x) };
+    [((r + m) * 255.0).round() as u8, ((g + m) * 255.0).round() as u8, ((b + m) * 255.0).round() as u8]
+}
+
+#[test]
+fn colour_pickers_are_found_and_read() {
+    use piccasso_core::tooldetect::*;
+    use piccasso_core::imgproc::Rgba;
+    // a fake screen: gray UI, a few icons, an HSV wheel (100 px) at (40,40) and a
+    // brightness slider (200x16) at (40,170) showing the wheel's chosen hue
+    let (w, h) = (400usize, 260usize);
+    let mut d = vec![0u8; w * h * 4];
+    let mut put = |x: usize, y: usize, c: [u8; 3]| { let i = (y * w + x) * 4; d[i..i + 3].copy_from_slice(&c); d[i + 3] = 255; };
+    for y in 0..h { for x in 0..w { put(x, y, [236, 236, 236]); } }
+    for y in 10..30 { for x in 300..320 { put(x, y, [200, 40, 40]); } } // a red icon
+    for y in 0..100 { for x in 0..100 {
+        let (dx, dy) = (x as f64 - 50.0, y as f64 - 50.0);
+        let r = dx.hypot(dy);
+        if r <= 50.0 { put(40 + x, 40 + y, hsv_rgb((dy.atan2(dx).to_degrees() + 360.0) % 360.0, r / 50.0, 1.0)); }
+    } }
+    for y in 0..16 { for x in 0..200 { put(40 + x, 170 + y, hsv_rgb(120.0, 0.8, x as f64 / 199.0)); } }
+    let img = Rgba { width: w, height: h, data: d };
+    let found = detect_color_widgets(&img);
+    let covers = |a: &Area, x: i32, y: i32| x >= a[0] && y >= a[1] && x < a[0] + a[2] && y < a[1] + a[3];
+    assert!(found.iter().any(|a| covers(a, 90, 90)), "wheel not found: {found:?}");
+    assert!(found.iter().any(|a| covers(a, 140, 178)), "slider not found: {found:?}");
+    assert!(!found.iter().any(|a| covers(a, 310, 20)), "icon taken for a picker: {found:?}");
+    let wheel = [40, 40, 100, 100];
+    let slider = [40, 170, 200, 16];
+    assert_eq!(picker_kind(&img, wheel), PickerKind::Hue);
+    assert_eq!(picker_kind(&img, slider), PickerKind::Shade);
+    // a dark green: the wheel gives its hue/saturation, the slider its darkness
+    let want = hsv_rgb(120.0, 0.8, 0.4);
+    let ((x, y), _) = best_pixel(&img, wheel, want, PickerKind::Hue);
+    let c = sample(&img, (x, y), 0);
+    assert!(c[1] > c[0] + 100 && c[1] > c[2] + 100, "{c:?}");
+    let ((sx, _), d) = best_pixel(&img, slider, want, PickerKind::Shade);
+    assert!((sx - (40 + 80)).abs() <= 3, "slider x {sx}");
+    assert!(d < 30.0);
+}
+
+#[test]
+fn size_curve_without_numbers() {
+    use piccasso_core::tooldetect::SizeCurve;
+    // a slider whose size grows with the square of the position (1..100 px)
+    let f = |t: f64| 1.0 + 99.0 * t * t;
+    let pts = piccasso_core::tooldetect::calibration_positions().into_iter().map(|t| (t, f(t).round())).collect();
+    let c = SizeCurve::new(pts);
+    for want in [2.0, 6.0, 12.0, 30.0, 70.0] {
+        let t = c.position_for(want).unwrap();
+        let got = f(t);
+        assert!((got - want).abs() / want < 0.2, "want {want} got {got}");
+    }
+}
+
+#[test]
+fn toolbars_and_plain_sliders_are_not_colour_pickers() {
+    use piccasso_core::tooldetect::detect_color_widgets;
+    use piccasso_core::imgproc::Rgba;
+    // a pale toolbar with a barely visible gradient, dark text/icons on it, and a
+    // flat gray slider with a dark knob
+    let (w, h) = (400usize, 200usize);
+    let mut d = vec![255u8; w * h * 4];
+    for y in 0..h { for x in 0..w {
+        let i = (y * w + x) * 4;
+        let mut c = [236u8, 236, 236];
+        if y < 60 { let t = (x as f64 / w as f64 * 10.0) as u8; c = [205 + t, 225 + t / 2, 245]; }
+        if y >= 20 && y < 40 && x % 30 < 12 { c = [30, 30, 30]; }
+        if y >= 120 && y < 136 && x >= 40 && x < 300 { c = [204, 204, 204]; }
+        if y >= 116 && y < 140 && x >= 150 && x < 160 { c = [50, 50, 50]; }
+        d[i..i + 3].copy_from_slice(&c);
+    } }
+    let found = detect_color_widgets(&Rgba { width: w, height: h, data: d });
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn soft_edges_count_by_ink() {
+    use piccasso_core::tooldetect::stroke_width;
+    use piccasso_core::imgproc::Rgba;
+    // a 3.6 px line drawn with anti-aliasing: rows 10..13 full, 14 at 60 %
+    let (w, h) = (20usize, 30usize);
+    let mut d = vec![255u8; w * h * 4];
+    for y in 0..h { for x in 0..w {
+        let cov: f64 = match y { 10..=12 => 1.0, 13 => 0.6, 9 => 0.0, _ => 0.0 };
+        let v = (255.0 * (1.0 - cov)).round() as u8;
+        let i = (y * w + x) * 4; d[i] = v; d[i + 1] = v; d[i + 2] = v;
+    } }
+    let wdt = stroke_width(&Rgba { width: w, height: h, data: d }, 10, 11, [255, 255, 255], 20);
+    assert!((wdt - 3.6).abs() < 0.1, "{wdt}");
+}

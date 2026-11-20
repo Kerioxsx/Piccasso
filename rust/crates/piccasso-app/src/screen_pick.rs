@@ -5,7 +5,8 @@
 //! match the coordinates auto-draw moves to.
 use piccasso_core::imgproc::Rgba;
 
-/// Screenshot of the whole X11 screen (Linux). None elsewhere or on failure.
+/// Screenshot of the whole screen in mouse coordinates: X11 on Linux, the
+/// `screencapture` tool on macOS, a PowerShell screen copy on Windows. None on failure.
 pub fn capture_screen() -> Option<Rgba> {
     #[cfg(all(target_os = "linux", feature = "autodraw"))]
     {
@@ -24,7 +25,28 @@ pub fn capture_screen() -> Option<Rgba> {
         }
         Some(Rgba { width: w, height: h, data })
     }
-    #[cfg(not(all(target_os = "linux", feature = "autodraw")))]
+    #[cfg(all(any(target_os = "macos", target_os = "windows"), feature = "autodraw"))]
+    {
+        // the OS screenshot tool writes a PNG; it is scaled to the mouse's coordinate
+        // space (Retina / high-DPI screens capture more pixels than mouse points)
+        let path = std::env::temp_dir().join(format!("piccasso-shot-{}.png", std::process::id()));
+        #[cfg(target_os = "macos")]
+        let ok = std::process::Command::new("screencapture").args(["-x", "-t", "png"]).arg(&path).status().map(|s| s.success()).unwrap_or(false);
+        #[cfg(target_os = "windows")]
+        let ok = {
+            let script = format!("Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $b=[System.Windows.Forms.SystemInformation]::VirtualScreen; $bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height; $g=[System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Left,$b.Top,0,0,$bmp.Size); $bmp.Save('{}',[System.Drawing.Imaging.ImageFormat]::Png)", path.display());
+            std::process::Command::new("powershell").args(["-NoProfile", "-NonInteractive", "-Command", &script]).status().map(|s| s.success()).unwrap_or(false)
+        };
+        if !ok { return None; }
+        let bytes = std::fs::read(&path).ok()?;
+        let _ = std::fs::remove_file(&path);
+        let img = piccasso_core::decode_image_bytes(&bytes).ok()?;
+        use enigo::{Enigo, Mouse, Settings};
+        let (w, h) = Enigo::new(&Settings::default()).ok()?.main_display().ok()?;
+        let (w, h) = (w.max(1) as usize, h.max(1) as usize);
+        Some(if img.width != w || img.height != h { piccasso_core::imgproc::resize_box(&img, w, h) } else { img })
+    }
+    #[cfg(not(all(any(target_os = "linux", target_os = "macos", target_os = "windows"), feature = "autodraw")))]
     { None }
 }
 

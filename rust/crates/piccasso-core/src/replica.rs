@@ -7,7 +7,7 @@
 //! overlapping rows are part of the same stroke (apps that cap opacity per
 //! stroke don't darken overlaps). A simulator renders the plan and reports
 //! how closely it matches the source.
-use crate::imgproc::{dilate, erode, resize_box, to_gray, Gray, Rgba};
+use crate::imgproc::{dilate, erode, gray_to_rgba, resize_box, to_gray, Gray, Rgba};
 use crate::strokes::{strokes_from_lineart, thin, trace_skeleton, Path};
 use crate::imgproc::douglas_peucker;
 
@@ -34,10 +34,15 @@ pub struct ReplicaOptions {
     /// Brush for fine strokes (parts thinner than the fill brush, e.g. ink lines).
     /// None = use the fill brush.
     pub line_brush_px: Option<f64>,
+    /// Find ink lines and hatching on the full-resolution picture and draw each
+    /// as one smooth stroke at its own darkness and width.
+    pub detail: bool,
+    /// Colour replica with this many paint colours (0 = black only).
+    pub colors: usize,
 }
 impl Default for ReplicaOptions {
     fn default() -> Self {
-        ReplicaOptions { tones: 4, brush_px: 6.0, overlap: 0.85, lines: true, opacity_control: true, glaze: None, solid_below: 40, max_layers: 10, line_brush_px: None }
+        ReplicaOptions { tones: 4, brush_px: 6.0, overlap: 0.85, lines: true, opacity_control: true, glaze: None, solid_below: 40, max_layers: 10, line_brush_px: None, detail: true, colors: 0 }
     }
 }
 
@@ -57,6 +62,8 @@ pub struct ToneLayer {
     pub brush: f64,
     /// Fine pass: centre-line strokes for parts too thin for the fill brush.
     pub fine: bool,
+    /// Paint colour (None = black). Colour layers are painted opaque.
+    pub rgb: Option<[u8; 3]>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -68,6 +75,8 @@ pub struct ReplicaPlan {
     pub lines: Vec<Path>,
     /// Quantized target (each pixel = its shade's mean gray).
     pub target: Gray,
+    /// Colour target (colour plans only).
+    pub target_rgb: Option<Rgba>,
 }
 
 /// Horizontal runs `[x0, x1]` (inclusive) of `mask` on row `y`.
@@ -167,7 +176,8 @@ pub fn region_strokes(inner: &[u8], tw: usize, th: usize, spacing: f64, outline:
             let core = erode(&m, bw, bh, 1);
             let ring: Vec<u8> = (0..bw * bh).map(|i| (m[i] != 0 && core[i] == 0) as u8).collect();
             for p in trace_skeleton(&ring, bw, bh, 1) {
-                pieces.push(douglas_peucker(&p, 0.5, false).into_iter().map(|q| [q[0] + 0.5, q[1] + 0.5]).collect());
+                let simple = douglas_peucker(&p, 0.6, false);
+                pieces.push(crate::lines::chaikin(&simple, 2).into_iter().map(|q| [q[0] + 0.5, q[1] + 0.5]).collect());
             }
         }
         pieces.extend(cover_mask(&m, bw, bh, spacing));
@@ -268,9 +278,9 @@ fn push_layer(layers: &mut Vec<ToneLayer>, mask: &[u8], tw: usize, th: usize, to
     if n == 0 { return; }
     let coverage = n as f64 / (tw * th) as f64;
     let (fill, fine_paths) = layer_paths(mask, tw, th, o.brush_px, spacing, fine);
-    layers.push(ToneLayer { tone, gray, opacity, paths: fill, coverage, brush: o.brush_px, fine: false });
+    layers.push(ToneLayer { tone, gray, opacity, paths: fill, coverage, brush: o.brush_px, fine: false, rgb: None });
     if !fine_paths.is_empty() {
-        layers.push(ToneLayer { tone, gray, opacity, paths: fine_paths, coverage, brush: o.line_brush_px.unwrap_or(o.brush_px), fine: true });
+        layers.push(ToneLayer { tone, gray, opacity, paths: fine_paths, coverage, brush: o.line_brush_px.unwrap_or(o.brush_px), fine: true, rgb: None });
     }
 }
 
@@ -351,7 +361,7 @@ fn plan_glaze(g: &Gray, a: f64, o: &ReplicaOptions) -> (Vec<ToneLayer>, Gray) {
         let opacity = if hi > 1.0 { 1.0 } else { sum / n as f64 };
         let paths = centre_strokes(&mask, tw, th);
         layers.push(ToneLayer { tone: 0, gray: (255.0 * (1.0 - opacity)).round() as u8, opacity, paths, coverage: n as f64 / (tw * th) as f64,
-            brush: o.line_brush_px.unwrap_or(o.brush_px), fine: true });
+            brush: o.line_brush_px.unwrap_or(o.brush_px), fine: true, rgb: None });
     }
     (layers, target)
 }
@@ -359,13 +369,61 @@ fn plan_glaze(g: &Gray, a: f64, o: &ReplicaOptions) -> (Vec<ToneLayer>, Gray) {
 /// Build the replica plan for a drawing of `tw × th` target pixels.
 pub fn plan_replica(img: &Rgba, outline: Option<&Rgba>, tw: usize, th: usize, o: &ReplicaOptions) -> ReplicaPlan {
     let (tw, th) = (tw.max(8), th.max(8));
-    // No blur: blurring invents in-between shades along hard edges.
-    let g = normalize_levels(&to_gray(&resize_box(img, tw, th)));
-    if let (Some(a), true) = (o.glaze, o.opacity_control) {
-        let (layers, target) = plan_glaze(&g, a, o);
-        let lines = replica_lines(outline, tw, th, o);
-        return ReplicaPlan { width: tw, height: th, layers, lines, target };
+    // Detail pass: lines are found on a picture up to 3x the target size, where a
+    // 1 px ink line is still a solid line (at target size it is a faint smudge).
+    let (ink, g) = if o.detail {
+        let s = (img.width as f64 / tw as f64).clamp(1.0, 3.0);
+        let (hw, hh) = ((tw as f64 * s).round() as usize, (th as f64 * s).round() as usize);
+        let hi_rgb = resize_box(img, hw, hh);
+        let hi = normalize_levels(&to_gray(&hi_rgb));
+        let max_w = ((o.brush_px * s).ceil() as usize).max(3);
+        let (lines, base) = crate::lines::ink_lines(&hi, Some(&hi_rgb), tw as f64 / hw as f64, max_w, 48);
+        (lines, to_gray(&resize_box(&gray_to_rgba(&base), tw, th)))
+    } else {
+        (vec![], normalize_levels(&to_gray(&resize_box(img, tw, th))))
+    };
+    if o.colors > 0 {
+        return plan_color(img, &ink, tw, th, o, outline);
     }
+    let (mut layers, mut target) = if let (Some(a), true) = (o.glaze, o.opacity_control) {
+        plan_glaze(&g, a, o)
+    } else {
+        plan_bands(&g, o)
+    };
+    // lines on top, lightest group first; every line is one smooth stroke
+    let line_brush = o.line_brush_px.unwrap_or(o.brush_px).max(1.0);
+    let levels = if o.opacity_control { vec![0.3, 0.55, 0.8, 1.0] } else { vec![1.0] };
+    let mut groups: std::collections::BTreeMap<(usize, usize), Vec<Path>> = Default::default();
+    for l in &ink {
+        if l.over < 0.12 && o.opacity_control { continue; }
+        let lv = levels.iter().enumerate().min_by(|a, b| (a.1 - l.over).abs().partial_cmp(&(b.1 - l.over).abs()).unwrap()).unwrap().0;
+        let wk = width_class(l.width, line_brush, o.brush_px);
+        groups.entry((lv, wk)).or_default().push(l.points.clone());
+    }
+    for ((lv, wk), paths) in groups {
+        let opacity = levels[lv];
+        let brush = line_brush * wk as f64;
+        let paths = crate::strokes::order_paths(paths, 1.0);
+        let mut cov = vec![0u8; tw * th];
+        for p in &paths { stamp_path(&mut cov, tw, th, p, brush / 2.0); }
+        for i in 0..tw * th { if cov[i] != 0 { target.data[i] = (target.data[i] as f64 * (1.0 - opacity)).round() as u8; } }
+        let coverage = cov.iter().filter(|&&c| c != 0).count() as f64 / (tw * th) as f64;
+        layers.push(ToneLayer { tone: 0, gray: (255.0 * (1.0 - opacity)).round() as u8, opacity, paths, coverage, brush, fine: true, rgb: None });
+    }
+    let lines = replica_lines(outline, tw, th, o);
+    ReplicaPlan { width: tw, height: th, layers, lines, target, target_rgb: None }
+}
+
+/// Line widths come in whole multiples of the line brush (each needs a brush
+/// size change), never wider than the fill brush.
+fn width_class(width: f64, line_brush: f64, brush: f64) -> usize {
+    let max_k = ((brush / line_brush).floor() as usize).max(1);
+    ((width / line_brush).round() as usize).clamp(1, max_k)
+}
+
+/// Flat bands: each shade is one layer at the opacity that gives its mean gray.
+fn plan_bands(g: &Gray, o: &ReplicaOptions) -> (Vec<ToneLayer>, Gray) {
+    let (tw, th) = (g.width, g.height);
     let n = o.tones.clamp(2, 8);
     let band: Vec<usize> = g.data.iter().map(|&v| (v as usize * n) / 256).collect();
     let mut sum = vec![0u64; n];
@@ -384,8 +442,68 @@ pub fn plan_replica(img: &Rgba, outline: Option<&Rgba>, tw: usize, th: usize, o:
         // Keep the brush edge on the shade boundary; thin parts get centre-line strokes.
         push_layer(&mut layers, &mask, tw, th, b, mean[b], opacity, o, spacing, o.opacity_control);
     }
-    let lines = replica_lines(outline, tw, th, o);
-    ReplicaPlan { width: tw, height: th, layers, lines, target }
+    (layers, target)
+}
+
+/// Colour plan: a small palette of opaque paints, lightest first. Each colour's
+/// area reaches one brush radius under the darker colours painted after it, so
+/// neighbouring colours meet with no white gaps; small parts get the line brush.
+fn plan_color(img: &Rgba, ink: &[crate::lines::InkLine], tw: usize, th: usize, o: &ReplicaOptions, outline: Option<&Rgba>) -> ReplicaPlan {
+    let small = resize_box(img, tw, th);
+    // paper level from the picture itself (photos of paper are never pure white)
+    let mut lum: Vec<u8> = small.data.chunks_exact(4).map(|p| ((77 * p[0] as u32 + 150 * p[1] as u32 + 29 * p[2] as u32) >> 8) as u8).collect();
+    lum.sort_unstable();
+    let paper = lum[(lum.len() - 1) * 9 / 10].saturating_sub(18).clamp(120, 245);
+    let (pal, assign) = crate::lines::palette(&small, o.colors.clamp(1, 16), paper);
+    let l = |c: [u8; 3]| 0.299 * c[0] as f64 + 0.587 * c[1] as f64 + 0.114 * c[2] as f64;
+    let mut order: Vec<usize> = (0..pal.len()).collect();
+    order.sort_by(|a, b| l(pal[*b]).partial_cmp(&l(pal[*a])).unwrap());
+    let mut rank = vec![0usize; pal.len()];
+    for (r, &c) in order.iter().enumerate() { rank[c] = r; }
+    let n = tw * th;
+    let mut target = Rgba { width: tw, height: th, data: vec![255; n * 4] };
+    for i in 0..n { if assign[i] != usize::MAX { let c = pal[assign[i]]; target.data[i * 4..i * 4 + 3].copy_from_slice(&c); } }
+    let rb = (o.brush_px / 2.0).ceil() as usize;
+    let spacing = o.brush_px * o.overlap;
+    let mut layers = Vec::new();
+    for (r, &c) in order.iter().enumerate() {
+        let own: Vec<u8> = assign.iter().map(|&a| (a == c) as u8).collect();
+        if !own.iter().any(|&v| v != 0) { continue; }
+        let halo = dilate(&own, tw, th, rb);
+        let mask: Vec<u8> = (0..n).map(|i| (own[i] != 0 || (halo[i] != 0 && assign[i] != usize::MAX && rank[assign[i]] > r)) as u8).collect();
+        let before = layers.len();
+        push_layer(&mut layers, &mask, tw, th, r, l(pal[c]).round() as u8, 1.0, o, spacing, true);
+        for t in &mut layers[before..] { t.rgb = Some(pal[c]); }
+    }
+    // ink lines in their nearest paint colour, darkest last
+    let line_brush = o.line_brush_px.unwrap_or(o.brush_px).max(1.0);
+    let mut groups: std::collections::BTreeMap<(usize, usize), Vec<Path>> = Default::default();
+    for li in ink {
+        if li.over < 0.15 { continue; }
+        let f = |c: [u8; 3]| [c[0] as f64, c[1] as f64, c[2] as f64];
+        let d = |p: [u8; 3]| crate::lines::color_dist(f(p), f(li.rgb));
+        let ci = (0..pal.len()).min_by(|a, b| d(pal[*a]).partial_cmp(&d(pal[*b])).unwrap()).unwrap_or(0);
+        groups.entry((rank[ci], width_class(li.width, line_brush, o.brush_px))).or_default().push(li.points.clone());
+    }
+    for ((r, wk), paths) in groups {
+        let c = pal[order[r]];
+        let brush = line_brush * wk as f64;
+        let paths = crate::strokes::order_paths(paths, 1.0);
+        let mut cov = vec![0u8; n];
+        for p in &paths { stamp_path(&mut cov, tw, th, p, brush / 2.0); }
+        for i in 0..n { if cov[i] != 0 { target.data[i * 4..i * 4 + 3].copy_from_slice(&c); } }
+        let coverage = cov.iter().filter(|&&v| v != 0).count() as f64 / n as f64;
+        layers.push(ToneLayer { tone: r, gray: l(c).round() as u8, opacity: 1.0, paths, coverage, brush, fine: true, rgb: Some(c) });
+    }
+    let tg = to_gray(&target);
+    ReplicaPlan { width: tw, height: th, layers, lines: replica_lines(outline, tw, th, o), target: tg, target_rgb: Some(target) }
+}
+
+/// Paint colours of a plan, in the order they are used (for the colour picker).
+pub fn plan_palette(plan: &ReplicaPlan) -> Vec<[u8; 3]> {
+    let mut out: Vec<[u8; 3]> = Vec::new();
+    for l in &plan.layers { if let Some(c) = l.rgb { if !out.contains(&c) { out.push(c); } } }
+    out
 }
 
 fn replica_lines(outline: Option<&Rgba>, tw: usize, th: usize, o: &ReplicaOptions) -> Vec<Path> {
@@ -432,22 +550,40 @@ fn stamp_path(cov: &mut [u8], w: usize, h: usize, p: &[[f64; 2]], r: f64) {
     }
 }
 
-/// Render the plan as a round brush of `brush_px` would, black at each layer's
-/// opacity over white (each layer is one pass; overlap inside a layer counts once).
-pub fn simulate(plan: &ReplicaPlan, brush_px: f64, opacity_control: bool) -> Gray {
+/// Render the plan in colour as a round brush would: each layer is one pass of
+/// its colour (black when none) at its opacity; overlap inside a layer counts once.
+pub fn simulate_rgb(plan: &ReplicaPlan, opacity_control: bool) -> Rgba {
     let (w, h) = (plan.width, plan.height);
-    let mut out = vec![255f64; w * h];
+    let mut out = vec![255f64; w * h * 3];
     for l in &plan.layers {
         let mut cov = vec![0u8; w * h];
-        let _ = brush_px;
         for p in &l.paths { stamp_path(&mut cov, w, h, p, l.brush / 2.0); }
-        let op = if opacity_control { l.opacity } else { 1.0 };
-        for i in 0..w * h { if cov[i] != 0 { out[i] *= 1.0 - op; } }
+        let op = if opacity_control || l.rgb.is_some() { l.opacity } else { 1.0 };
+        let c = l.rgb.unwrap_or([0, 0, 0]);
+        for i in 0..w * h {
+            if cov[i] == 0 { continue; }
+            for k in 0..3 { out[i * 3 + k] = out[i * 3 + k] * (1.0 - op) + c[k] as f64 * op; }
+        }
     }
     let mut cov = vec![0u8; w * h];
     for p in &plan.lines { stamp_path(&mut cov, w, h, p, 1.0); }
-    for i in 0..w * h { if cov[i] != 0 { out[i] = 30.0; } }
-    Gray { width: w, height: h, data: out.iter().map(|&v| v.round().clamp(0.0, 255.0) as u8).collect() }
+    let mut data = vec![255u8; w * h * 4];
+    for i in 0..w * h {
+        for k in 0..3 { data[i * 4 + k] = if cov[i] != 0 { 30 } else { out[i * 3 + k].round().clamp(0.0, 255.0) as u8 }; }
+    }
+    Rgba { width: w, height: h, data }
+}
+
+/// Gray version of [`simulate_rgb`].
+pub fn simulate(plan: &ReplicaPlan, _brush_px: f64, opacity_control: bool) -> Gray {
+    to_gray(&simulate_rgb(plan, opacity_control))
+}
+
+/// Mean colour difference per channel (0..255).
+pub fn mean_error_rgb(a: &Rgba, b: &Rgba) -> f64 {
+    let mut s = 0.0;
+    for i in 0..a.width * a.height { for k in 0..3 { s += (a.data[i * 4 + k] as f64 - b.data[i * 4 + k] as f64).abs(); } }
+    s / (a.width * a.height * 3).max(1) as f64
 }
 
 /// Share of pixels whose simulated gray is within one shade step of the target.

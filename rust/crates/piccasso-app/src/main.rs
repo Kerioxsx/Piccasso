@@ -29,7 +29,7 @@ fn dev_commands() -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let t0 = std::time::Instant::now();
-        screens::autodraw::run_drawing(paths, [n[0], n[1], n[2], n[3]], a.aspect, *n.get(4).unwrap_or(&2500.0), 2.0, cancel, tx);
+        screens::autodraw::run_drawing(paths, [n[0], n[1], n[2], n[3]], a.aspect, *n.get(4).unwrap_or(&2500.0), cancel, tx);
         for m in rx.try_iter() { if let screens::autodraw::Msg::Done(s) = m { println!("{s} ({:.2}s)", t0.elapsed().as_secs_f64()); } }
         return true;
     }
@@ -52,9 +52,12 @@ fn dev_commands() -> bool {
         let f = piccasso_core::strokes::fit_into([n[0], n[1], n[2], n[3]], aspect);
         let env_f = |k: &str| std::env::var(k).ok().and_then(|v| v.parse::<f64>().ok());
         let o = piccasso_core::replica::ReplicaOptions { tones: n[5] as usize, brush_px: n[4], overlap: 0.85, lines: false, opacity_control: true,
-            glaze: env_f("PICCASSO_GLAZE"), line_brush_px: env_f("PICCASSO_LINE"), ..Default::default() };
+            glaze: env_f("PICCASSO_GLAZE"), line_brush_px: env_f("PICCASSO_LINE"), colors: env_f("PICCASSO_COLORS").unwrap_or(0.0) as usize, ..Default::default() };
         let plan = piccasso_core::replica::plan_replica(&img, None, f[2].round() as usize, f[3].round() as usize, &o);
         let sim = piccasso_core::replica::simulate(&plan, o.brush_px, true);
+        let sim_rgb = piccasso_core::replica::simulate_rgb(&plan, true);
+        let _ = std::fs::write("replica-sim-rgb.png", piccasso_core::encode_png(&sim_rgb).unwrap());
+        let _ = std::fs::write("replica-source-rgb.png", piccasso_core::encode_png(&piccasso_core::imgproc::resize_box(&img, plan.width, plan.height)).unwrap());
         println!("plan: {} shades, simulated match {:.1}%, origin {:.0},{:.0} size {}x{}", plan.layers.len(), 100.0 * piccasso_core::replica::match_score(&sim, &plan.target, o.tones), f[0], f[1], plan.width, plan.height);
         let _ = std::fs::write("replica-target.png", piccasso_core::encode_png(&piccasso_core::imgproc::gray_to_rgba(&plan.target)).unwrap());
         let _ = std::fs::write("replica-source.png", piccasso_core::encode_png(&piccasso_core::imgproc::gray_to_rgba(&piccasso_core::replica::source_gray(&img, plan.width, plan.height))).unwrap());
@@ -64,14 +67,42 @@ fn dev_commands() -> bool {
         let nums = |k: &str| std::env::var(k).ok().map(|v| v.split(',').filter_map(|x| x.parse::<f64>().ok()).collect::<Vec<_>>()).unwrap_or_default();
         let ss = nums("PICCASSO_SIZE_SLIDER");
         let sr = nums("PICCASSO_SIZE_RANGE");
-        let tools = screens::autodraw::Tools {
-            size_slider: if ss.len() == 4 { [Some((ss[0] as i32, ss[1] as i32)), Some((ss[2] as i32, ss[3] as i32))] } else { [None, None] },
-            size_range: if sr.len() == 2 { (sr[0], sr[1]) } else { (1.0, 100.0) },
-            size_log: false,
-            line_brush: line_btn, brush: n.get(10).zip(n.get(11)).map(|(x, y)| (*x as i32, *y as i32)), slider: [Some((n[6] as i32, n[7] as i32)), Some((n[8] as i32, n[9] as i32))], buttons: vec![], full: None };
+        let pt = |k: &str| { let v = nums(k); (v.len() >= 2).then(|| (v[0] as i32, v[1] as i32)) };
+        let mut tools = screens::autodraw::Tools::new_default();
+        tools.size_slider = if ss.len() == 4 { [Some((ss[0] as i32, ss[1] as i32)), Some((ss[2] as i32, ss[3] as i32))] } else { [None, None] };
+        if sr.len() == 2 { tools.size_range = (sr[0], sr[1]); }
+        tools.line_brush = line_btn;
+        tools.brush = n.get(10).zip(n.get(11)).map(|(x, y)| (*x as i32, *y as i32));
+        tools.slider = [Some((n[6] as i32, n[7] as i32)), Some((n[8] as i32, n[9] as i32))];
+        // colour: PICCASSO_HEX=x,y (hex field) or PICCASSO_COLOR_AREAS="x,y,w,h;..." or PICCASSO_DETECT=1;
+        // PICCASSO_SWATCH=x,y reads the current colour back
+        tools.hex_field = pt("PICCASSO_HEX");
+        tools.swatch = pt("PICCASSO_SWATCH");
+        if tools.hex_field.is_some() { tools.color_mode = screens::autodraw::ColorMode::Hex; }
+        if let Ok(v) = std::env::var("PICCASSO_COLOR_AREAS") {
+            tools.color_areas = v.split(';').filter_map(|b| { let n: Vec<i32> = b.split(',').filter_map(|x| x.parse().ok()).collect(); (n.len() == 4).then(|| [n[0], n[1], n[2], n[3]]) }).collect();
+            tools.color_mode = screens::autodraw::ColorMode::Areas;
+        }
+        if std::env::var("PICCASSO_DETECT").is_ok() {
+            let shot = screen_pick::capture_screen().expect("screen capture");
+            tools.color_areas = piccasso_core::tooldetect::detect_color_widgets(&shot);
+            println!("detected colour tools: {:?}", tools.color_areas);
+            tools.color_areas.sort_by_key(|a| std::cmp::Reverse(a[2] as i64 * a[3] as i64)); // the big picker first, then its sliders
+            tools.color_mode = screens::autodraw::ColorMode::Areas;
+        }
+        // PICCASSO_CALIBRATE=x,y,w,h: measure the brush-size slider in that empty area first
+        let cal = nums("PICCASSO_CALIBRATE");
+        if cal.len() == 4 {
+            tools.test_area = Some([cal[0] as i32, cal[1] as i32, cal[2] as i32, cal[3] as i32]);
+            let cancel = std::sync::atomic::AtomicBool::new(false);
+            match screens::autodraw::calibrate_size(&tools, &cancel, &|m| println!("  {m}")) {
+                Ok(c) => { println!("size curve: {:?}", c.points); tools.size_curve = c; }
+                Err(e) => { println!("calibration failed: {e}"); return true; }
+            }
+        }
         let (tx, rx) = std::sync::mpsc::channel();
         let t0 = std::time::Instant::now();
-        screens::autodraw::run_replica(plan, [f[0].round(), f[1].round()], tools, screens::autodraw::OpacityMode::Slider, env_f("PICCASSO_SPEED").unwrap_or(6000.0), 2.0, std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)), tx);
+        screens::autodraw::run_replica(plan, [f[0].round(), f[1].round()], tools, screens::autodraw::OpacityMode::Slider, env_f("PICCASSO_SPEED").unwrap_or(6000.0), std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)), tx);
         for m in rx.try_iter() { if let screens::autodraw::Msg::Done(s) = m { println!("{s} ({:.1}s)", t0.elapsed().as_secs_f64()); } }
         return true;
     }
