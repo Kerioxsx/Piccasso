@@ -10,6 +10,7 @@ mod app;
 mod bridge;
 mod camera;
 mod export;
+mod screen_pick;
 mod screens;
 mod settings;
 mod ui;
@@ -37,20 +38,40 @@ fn dev_commands() -> bool {
     #[cfg(feature = "autodraw")]
     if args.get(1).map(|s| s.as_str()) == Some("--replica-test") {
         let n: Vec<f64> = args[2..].iter().filter_map(|s| s.parse().ok()).collect();
-        let p = piccasso_core::project::import_project(screens::home::DEMO_JSON).expect("demo");
-        let src = piccasso_core::decode_source(&p.source).expect("demo image");
-        let img = piccasso_core::imgproc::prepare_image(&src, &p.prep.image(), 1280);
-        let a = p.analysis.unwrap();
-        let f = piccasso_core::strokes::fit_into([n[0], n[1], n[2], n[3]], a.aspect);
-        let o = piccasso_core::replica::ReplicaOptions { tones: n[5] as usize, brush_px: n[4], overlap: 0.85, lines: false, opacity_control: true };
+        // PICCASSO_IMG=<file> uses another picture; PICCASSO_GLAZE=<coat opacity> enables depth mode;
+        // PICCASSO_LINE=<px> sets the line brush; PICCASSO_LINE_BTN=x,y is the line-brush tool position.
+        let img = match std::env::var("PICCASSO_IMG") {
+            Ok(path) => { let i = piccasso_core::decode_image_bytes(&std::fs::read(path).expect("image")).expect("decode"); let (w, h) = piccasso_core::imgproc::fit_dims(i.width, i.height, 1400); piccasso_core::imgproc::resize_box(&i, w, h) }
+            Err(_) => {
+                let p = piccasso_core::project::import_project(screens::home::DEMO_JSON).expect("demo");
+                let src = piccasso_core::decode_source(&p.source).expect("demo image");
+                piccasso_core::imgproc::prepare_image(&src, &p.prep.image(), 1280)
+            }
+        };
+        let aspect = img.width as f64 / img.height as f64;
+        let f = piccasso_core::strokes::fit_into([n[0], n[1], n[2], n[3]], aspect);
+        let env_f = |k: &str| std::env::var(k).ok().and_then(|v| v.parse::<f64>().ok());
+        let o = piccasso_core::replica::ReplicaOptions { tones: n[5] as usize, brush_px: n[4], overlap: 0.85, lines: false, opacity_control: true,
+            glaze: env_f("PICCASSO_GLAZE"), line_brush_px: env_f("PICCASSO_LINE"), ..Default::default() };
         let plan = piccasso_core::replica::plan_replica(&img, None, f[2].round() as usize, f[3].round() as usize, &o);
         let sim = piccasso_core::replica::simulate(&plan, o.brush_px, true);
         println!("plan: {} shades, simulated match {:.1}%, origin {:.0},{:.0} size {}x{}", plan.layers.len(), 100.0 * piccasso_core::replica::match_score(&sim, &plan.target, o.tones), f[0], f[1], plan.width, plan.height);
         let _ = std::fs::write("replica-target.png", piccasso_core::encode_png(&piccasso_core::imgproc::gray_to_rgba(&plan.target)).unwrap());
-        let tools = screens::autodraw::Tools { brush: n.get(10).zip(n.get(11)).map(|(x, y)| (*x as i32, *y as i32)), slider: [Some((n[6] as i32, n[7] as i32)), Some((n[8] as i32, n[9] as i32))], buttons: vec![], full: None };
+        let _ = std::fs::write("replica-source.png", piccasso_core::encode_png(&piccasso_core::imgproc::gray_to_rgba(&piccasso_core::replica::source_gray(&img, plan.width, plan.height))).unwrap());
+        let _ = std::fs::write("replica-sim.png", piccasso_core::encode_png(&piccasso_core::imgproc::gray_to_rgba(&sim)).unwrap());
+        let line_btn = std::env::var("PICCASSO_LINE_BTN").ok().and_then(|v| { let mut it = v.split(',').filter_map(|x| x.parse::<i32>().ok()); Some((it.next()?, it.next()?)) });
+        // PICCASSO_SIZE_SLIDER=x0,y0,x1,y1 and PICCASSO_SIZE_RANGE=min,max set the brush-size slider.
+        let nums = |k: &str| std::env::var(k).ok().map(|v| v.split(',').filter_map(|x| x.parse::<f64>().ok()).collect::<Vec<_>>()).unwrap_or_default();
+        let ss = nums("PICCASSO_SIZE_SLIDER");
+        let sr = nums("PICCASSO_SIZE_RANGE");
+        let tools = screens::autodraw::Tools {
+            size_slider: if ss.len() == 4 { [Some((ss[0] as i32, ss[1] as i32)), Some((ss[2] as i32, ss[3] as i32))] } else { [None, None] },
+            size_range: if sr.len() == 2 { (sr[0], sr[1]) } else { (1.0, 100.0) },
+            size_log: false,
+            line_brush: line_btn, brush: n.get(10).zip(n.get(11)).map(|(x, y)| (*x as i32, *y as i32)), slider: [Some((n[6] as i32, n[7] as i32)), Some((n[8] as i32, n[9] as i32))], buttons: vec![], full: None };
         let (tx, rx) = std::sync::mpsc::channel();
         let t0 = std::time::Instant::now();
-        screens::autodraw::run_replica(plan, [f[0].round(), f[1].round()], tools, screens::autodraw::OpacityMode::Slider, 6000.0, 2.0, std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)), tx);
+        screens::autodraw::run_replica(plan, [f[0].round(), f[1].round()], tools, screens::autodraw::OpacityMode::Slider, env_f("PICCASSO_SPEED").unwrap_or(6000.0), 2.0, std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)), tx);
         for m in rx.try_iter() { if let screens::autodraw::Msg::Done(s) = m { println!("{s} ({:.1}s)", t0.elapsed().as_secs_f64()); } }
         return true;
     }
@@ -79,7 +100,9 @@ fn main() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_title("Piccasso")
             .with_inner_size([1200.0, 820.0])
-            .with_min_inner_size([420.0, 520.0]),
+            .with_min_inner_size([420.0, 520.0])
+            // see-through when picking places on the screen (normal screens are opaque)
+            .with_transparent(true),
         ..Default::default()
     };
     eframe::run_native("Piccasso", options, Box::new(|cc| Ok(Box::new(app::PiccassoApp::new(cc)))))

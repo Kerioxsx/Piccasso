@@ -16,6 +16,8 @@
 - Works where the OS allows synthetic mouse input: Windows, macOS (grant Accessibility permission), Linux X11. Wayland sessions usually block it.
 - It draws what Piccasso's strokes describe (outlines and line art), not shading or colour fills, and it relies on the target program's current brush.
 - Drawing programs read the mouse 60–120 times a second. Piccasso pauses at every corner (adjustable "corner pause") so no turn is cut; raise it if you see diagonal shortcuts, or lower the speed.
+- Exact replica draws in one colour (grey tones). Colour pictures are reproduced as their light and dark values; colour passes are not automated yet.
+- Depth mode stacks coats, so it needs a program whose opacity applies per stroke and multiplies when strokes are layered (most paint programs at 100 % flow). Detail finer than the line brush is lost, and drawing a detailed picture takes several minutes.
 - Exact replica: the copy is exact up to the number of shades you choose (2–8) and the brush you set. Set the same brush size in your program, 100 % hardness, and per-stroke opacity (not flow/build-up). Soft brushes, pressure dynamics, smoothing/stabilisers or "flow" accumulation change the result. Opacity is set by clicking the recorded slider position, so the program must accept a click on its slider (most do; some need a typed value, then use "a button per shade" with presets).
 
 ## Other

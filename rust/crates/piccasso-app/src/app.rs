@@ -281,6 +281,9 @@ impl PiccassoApp {
 }
 
 impl eframe::App for PiccassoApp {
+    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
+        if self.screen_state.autodraw.picking() { [0.0, 0.0, 0.0, 0.0] } else { visuals.panel_fill.to_normalized_gamma_f32() }
+    }
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.poll_job(ctx);
         crate::ai::poll(self);

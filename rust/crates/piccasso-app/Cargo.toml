@@ -10,7 +10,7 @@ path = "src/main.rs"
 
 [features]
 default = ["keepawake", "autodraw", "phone"]
-autodraw = ["dep:enigo"]
+autodraw = ["dep:enigo", "dep:x11rb"]
 phone = ["dep:tiny_http", "dep:rcgen", "dep:qrcode"]
 camera = ["dep:nokhwa"]
 ai = ["dep:ureq"]
@@ -32,3 +32,6 @@ enigo = { version = "0.3", default-features = false, features = ["x11rb"], optio
 tiny_http = { version = "0.12", features = ["ssl-rustls"], optional = true }
 rcgen = { version = "0.13", optional = true }
 qrcode = { version = "0.14", default-features = false, optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+x11rb = { version = "0.13", optional = true }

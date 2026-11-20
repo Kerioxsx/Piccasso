@@ -281,7 +281,7 @@ fn replica_plan_is_exact_and_stays_inside_shades() {
     let (w, h) = (90usize, 60usize);
     let mut img = Rgba::filled(w, h, 255);
     for y in 0..h { for x in 30..90 { let v = if x < 60 { 128 } else { 40 }; img.data[(y * w + x) * 4..(y * w + x) * 4 + 3].copy_from_slice(&[v, v, v]); } }
-    let o = ReplicaOptions { tones: 4, brush_px: 4.0, overlap: 0.85, lines: false, opacity_control: true };
+    let o = ReplicaOptions { tones: 4, brush_px: 4.0, overlap: 0.85, lines: false, opacity_control: true, ..Default::default() };
     let plan = plan_replica(&img, None, w, h, &o);
     assert_eq!(plan.layers.len(), 2, "two shades to draw, white is paper");
     assert!(plan.layers[0].gray > plan.layers[1].gray, "lightest first");
@@ -311,4 +311,30 @@ fn legacy_drawstep_files_still_open() {
     v["format"] = "drawstep-project".into();
     let p = import_project(&v.to_string()).unwrap();
     assert_eq!(p.format, FORMAT);
+}
+
+#[test]
+fn depth_mode_reproduces_gradients_and_fine_lines() {
+    use piccasso_core::replica::*;
+    // a smooth left-to-right gradient with a thin black line through it
+    let (w, h) = (120usize, 80usize);
+    let mut img = Rgba::filled(w, h, 255);
+    for y in 0..h { for x in 0..w {
+        let mut v = 255 - (x * 200 / w) as u8;
+        if y == 40 { v = 0; }
+        img.data[(y * w + x) * 4..(y * w + x) * 4 + 3].copy_from_slice(&[v, v, v]);
+    } }
+    let src = source_gray(&img, w, h);
+    let bands = ReplicaOptions { tones: 3, brush_px: 4.0, lines: false, ..Default::default() };
+    let depth = ReplicaOptions { brush_px: 4.0, glaze: Some(0.2), max_layers: 12, line_brush_px: Some(1.0), lines: false, ..Default::default() };
+    let err = |o: &ReplicaOptions| { let p = plan_replica(&img, None, w, h, o); mean_error(&simulate(&p, o.brush_px, true), &src) };
+    let (eb, ed) = (err(&bands), err(&depth));
+    assert!(ed < eb * 0.75, "depth {ed:.1} should clearly beat 3 flat bands {eb:.1}");
+    // the 1-px line is traced as continuous fine strokes, not dotted rows
+    let plan = plan_replica(&img, None, w, h, &depth);
+    let fine: Vec<_> = plan.layers.iter().filter(|l| l.fine && l.opacity == 1.0).collect();
+    assert!(!fine.is_empty(), "solid fine pass exists");
+    let longest = fine.iter().flat_map(|l| l.paths.iter()).map(|p| (p[p.len() - 1][0] - p[0][0]).abs()).fold(0.0, f64::max);
+    assert!(longest > w as f64 * 0.8, "line drawn as one long stroke, got {longest}");
+    assert_eq!(fine[0].brush, 1.0);
 }

@@ -15,7 +15,13 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Target { Corner(usize), Brush, SliderZero, SliderFull, Button(usize), FullButton }
+pub enum Target { Corner(usize), Brush, LineBrush, SliderZero, SliderFull, Button(usize), FullButton, SizeMin, SizeMax }
+
+/// What the full-screen picker is choosing.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PickWhat { Tool(Target), Area }
+
+pub struct Pick { pub what: PickWhat, pub shot: Option<Rgba>, pub start: Option<(i32, i32)> }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OpacityMode { None, Slider, Buttons }
@@ -24,21 +30,44 @@ pub enum OpacityMode { None, Slider, Buttons }
 #[derive(Debug, Clone, Default)]
 pub struct Tools {
     pub brush: Option<(i32, i32)>,
+    /// Optional thin brush for the fine pass (ink lines, hatching).
+    pub line_brush: Option<(i32, i32)>,
     pub slider: [Option<(i32, i32)>; 2],
     pub buttons: Vec<Option<(i32, i32)>>,
     pub full: Option<(i32, i32)>,
+    /// Brush-size slider ends and the sizes (px) they stand for.
+    pub size_slider: [Option<(i32, i32)>; 2],
+    pub size_range: (f64, f64),
+    /// Size sliders in many programs are logarithmic.
+    pub size_log: bool,
+}
+
+impl Tools {
+    /// Screen point on the brush-size slider for `px`.
+    pub fn new_default() -> Self { Tools { size_range: (1.0, 100.0), ..Default::default() } }
+    pub fn size_point(&self, px: f64) -> Option<(i32, i32)> {
+        let [Some(a), Some(b)] = self.size_slider else { return None };
+        let (lo, hi) = (self.size_range.0.max(0.1), self.size_range.1.max(self.size_range.0 + 0.1));
+        let px = px.clamp(lo, hi);
+        let t = if self.size_log { (px / lo).ln() / (hi / lo).ln() } else { (px - lo) / (hi - lo) };
+        Some(((a.0 as f64 + (b.0 - a.0) as f64 * t).round() as i32, (a.1 as f64 + (b.1 - a.1) as f64 * t).round() as i32))
+    }
 }
 
 pub struct AutoDrawState {
     source: u8, // 0 outline, 1 outline + inner, 2 detailed line art, 3 exact replica
     tones: usize,
     brush_px: f64,
+    depth: bool,
+    coat: f64,
+    line_px: f64,
     replica_lines: bool,
     opacity_mode: OpacityMode,
     tools: Tools,
     replica: Option<(String, piccasso_core::replica::ReplicaPlan, f64)>,
     replica_rx: Option<(String, Receiver<(piccasso_core::replica::ReplicaPlan, f64, Rgba)>)>,
     sim: Option<Rgba>,
+    pub pick: Option<Pick>,
     detail: f64,
     speed: f64,
     step_px: f64,
@@ -52,9 +81,102 @@ pub struct AutoDrawState {
 }
 impl Default for AutoDrawState {
     fn default() -> Self {
-        AutoDrawState { tones: 4, brush_px: 6.0, replica_lines: true, opacity_mode: OpacityMode::Slider, tools: Tools::default(), replica: None, replica_rx: None, sim: None,
+        AutoDrawState { pick: None, tones: 4, brush_px: 6.0, depth: true, coat: 0.25, line_px: 2.0, replica_lines: true, opacity_mode: OpacityMode::Slider, tools: Tools::new_default(), replica: None, replica_rx: None, sim: None,
             source: 1, detail: 1.5, speed: 2500.0, step_px: 2.0, paths: None, area: None, corner: [None, None], capture: None, run: None, progress: 0.0, status: String::new() }
     }
+}
+
+impl AutoDrawState {
+    /// Transparent window needed (picker active without a screenshot underneath).
+    pub fn picking(&self) -> bool { self.pick.as_ref().map_or(false, |p| p.shot.is_none()) }
+    fn set_target(&mut self, t: Target, p: (i32, i32)) {
+        match t {
+            Target::Corner(i) => self.corner[i] = Some(p),
+            Target::Brush => self.tools.brush = Some(p),
+            Target::LineBrush => self.tools.line_brush = Some(p),
+            Target::SliderZero => self.tools.slider[0] = Some(p),
+            Target::SliderFull => self.tools.slider[1] = Some(p),
+            Target::Button(i) => { if self.tools.buttons.len() <= i { self.tools.buttons.resize(i + 1, None); } self.tools.buttons[i] = Some(p); }
+            Target::FullButton => self.tools.full = Some(p),
+            Target::SizeMin => self.tools.size_slider[0] = Some(p),
+            Target::SizeMax => self.tools.size_slider[1] = Some(p),
+        }
+        if let (Some(a0), Some(b0), Target::Corner(_)) = (self.corner[0], self.corner[1], t) {
+            let (x0, y0, x1, y1) = (a0.0.min(b0.0), a0.1.min(b0.1), a0.0.max(b0.0), a0.1.max(b0.1));
+            if x1 - x0 > 20 && y1 - y0 > 20 { self.area = Some([x0 as f64, y0 as f64, (x1 - x0) as f64, (y1 - y0) as f64]); }
+        }
+    }
+}
+
+/// Full-screen picker: click a tool, or drag a box for the drawing area.
+fn show_picker(st: &mut AutoDrawState, tex: &mut crate::ui::Textures, ctx: &egui::Context) {
+    let Some(pk) = st.pick.as_mut() else { return };
+    let mut done: Option<Option<(PickWhat, (i32, i32), (i32, i32))>> = None;
+    egui::CentralPanel::default().frame(egui::Frame::new().fill(if pk.shot.is_some() { Color32::BLACK } else { Color32::from_black_alpha(70) })).show(ctx, |ui| {
+        let area = ui.max_rect();
+        let resp = ui.allocate_rect(area, egui::Sense::click_and_drag());
+        let painter = ui.painter_at(area);
+        if let Some(shot) = &pk.shot {
+            let t = tex.get(ctx, "screen-shot", shot);
+            painter.image(t.id(), area, egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+            painter.rect_filled(area, 0.0, Color32::from_black_alpha(40));
+        }
+        let what = match pk.what {
+            PickWhat::Area => "Drag a box around the area to draw in (your program's canvas).".to_string(),
+            PickWhat::Tool(t) => format!("Click on: {}", match t {
+                Target::Brush => "the fill brush button", Target::LineBrush => "the line brush button",
+                Target::SliderZero => "the opacity slider at 0%", Target::SliderFull => "the opacity slider at 100%",
+                Target::SizeMin => "the brush-size slider at its smallest size", Target::SizeMax => "the brush-size slider at its largest size",
+                Target::FullButton => "the 100% opacity button", Target::Button(_) => "this shade's opacity button", Target::Corner(_) => "the corner",
+            }),
+        };
+        let banner = egui::Rect::from_center_size(pos2(area.center().x, area.min.y + 40.0), vec2(area.width().min(760.0), 54.0));
+        painter.rect_filled(banner, 10.0, Color32::from_black_alpha(200));
+        painter.text(banner.center(), egui::Align2::CENTER_CENTER, format!("{what}   ·   Esc to cancel"), egui::FontId::proportional(18.0), Color32::WHITE);
+        if let Some(p) = ctx.input(|i| i.pointer.hover_pos()) {
+            let st_ = Stroke::new(1.0_f32, Color32::from_rgb(0x7c, 0xc4, 0xb3));
+            painter.line_segment([pos2(area.min.x, p.y), pos2(area.max.x, p.y)], st_);
+            painter.line_segment([pos2(p.x, area.min.y), pos2(p.x, area.max.y)], st_);
+        }
+        if resp.drag_started() || (resp.is_pointer_button_down_on() && pk.start.is_none()) {
+            pk.start = crate::screen_pick::mouse_position();
+        }
+        if let (PickWhat::Area, Some(a), Some(p0)) = (pk.what, pk.start, resp.interact_pointer_pos()) {
+            if let Some(start_pt) = ctx.input(|i| i.pointer.press_origin()) {
+                let r = egui::Rect::from_two_pos(start_pt, p0);
+                painter.rect_stroke(r, 0.0, Stroke::new(2.0_f32, Color32::from_rgb(0x7c, 0xc4, 0xb3)), egui::StrokeKind::Middle);
+                let _ = a;
+            }
+        }
+        if resp.drag_stopped() || resp.clicked() {
+            // a quick click can press and release within one frame: fall back to the current position
+            let b = crate::screen_pick::mouse_position();
+            if let (Some(a), Some(b)) = (pk.start.or(b), b) { done = Some(Some((pk.what, a, b))); }
+        }
+    });
+    if ctx.input(|i| i.key_pressed(egui::Key::Escape)) { done = Some(None); }
+    if let Some(res) = done {
+        st.pick = None;
+        tex.remove("screen-shot");
+        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+        match res {
+            Some((PickWhat::Tool(t), _, b)) => st.set_target(t, b),
+            Some((PickWhat::Area, a, b)) => {
+                let (x0, y0, x1, y1) = (a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1));
+                if x1 - x0 > 20 && y1 - y0 > 20 {
+                    st.corner = [Some((x0, y0)), Some((x1, y1))];
+                    st.area = Some([x0 as f64, y0 as f64, (x1 - x0) as f64, (y1 - y0) as f64]);
+                } else { st.status = "The box was too small; drag a bigger one.".into(); }
+            }
+            None => {}
+        }
+    }
+    ctx.request_repaint();
+}
+
+fn start_pick(st: &mut AutoDrawState, what: PickWhat, ctx: &egui::Context) {
+    st.pick = Some(Pick { what, shot: crate::screen_pick::capture_screen(), start: None });
+    ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(true));
 }
 
 pub enum Msg {
@@ -175,8 +297,10 @@ pub fn run_replica(plan: ReplicaPlan, org: [f64; 2], tools: Tools, mode: Opacity
     let mut pen = pen::Pen { e, expected: None, cancel: &cancel, speed, step: step_px, dwell: Duration::from_millis(DWELL_MS.load(Ordering::Relaxed)) };
     let (total, _) = plan_stats(&plan);
     let mut done = 0usize;
-    let set_strength = |pen: &mut pen::Pen, opacity: f64, layer_index: Option<usize>| -> Result<(), String> {
-        if let Some(b) = tools.brush { pen.click(b)?; }
+    let set_strength = |pen: &mut pen::Pen, opacity: f64, layer_index: Option<usize>, fine: bool, size_px: Option<f64>| -> Result<(), String> {
+        let brush = if fine { tools.line_brush.or(tools.brush) } else { tools.brush };
+        if let Some(b) = brush { pen.click(b)?; }
+        if let Some(px) = size_px { if let Some(p) = tools.size_point(px) { pen.click(p)?; } }
         match mode {
             OpacityMode::Slider => if let [Some(z), Some(f)] = tools.slider {
                 let t = opacity.clamp(0.0, 1.0);
@@ -193,7 +317,7 @@ pub fn run_replica(plan: ReplicaPlan, org: [f64; 2], tools: Tools, mode: Opacity
     std::thread::sleep(Duration::from_millis(400));
     let mut run = || -> Result<(), String> {
         for (li, layer) in plan.layers.iter().enumerate() {
-            set_strength(&mut pen, layer.opacity, Some(li))?;
+            set_strength(&mut pen, layer.opacity, Some(li), layer.fine, Some(layer.brush))?;
             for p in &layer.paths {
                 let pts: Vec<[f64; 2]> = p.iter().map(|q| [org[0] + q[0], org[1] + q[1]]).collect();
                 pen.stroke(&pts)?;
@@ -202,7 +326,7 @@ pub fn run_replica(plan: ReplicaPlan, org: [f64; 2], tools: Tools, mode: Opacity
             }
         }
         if !plan.lines.is_empty() {
-            set_strength(&mut pen, 1.0, None)?;
+            set_strength(&mut pen, 1.0, None, true, None)?;
             for p in &plan.lines {
                 let pts: Vec<[f64; 2]> = p.iter().map(|q| [org[0] + q[0], org[1] + q[1]]).collect();
                 pen.stroke(&pts)?;
@@ -219,6 +343,7 @@ pub fn run_replica(plan: ReplicaPlan, org: [f64; 2], tools: Tools, mode: Opacity
 pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
     let Some(sess) = app.session.as_mut() else { return };
     let st = &mut app.screen_state.autodraw;
+    if st.pick.is_some() { show_picker(st, &mut app.textures, ctx); return; }
     let Some(a) = sess.project.analysis.clone() else { return };
     let aspect = a.aspect;
     let mut back = false;
@@ -240,7 +365,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
     // Replica plan at the exact pixel size of the drawing area (background thread).
     if st.source == 3 {
         let (tw, th) = match st.area { Some(ar) => { let f = fit_into(ar, aspect); (f[2].round() as usize, f[3].round() as usize) } None => (600, (600.0 / aspect).round() as usize) };
-        let rkey = format!("{tw}x{th}|{}|{}|{}|{:?}|{}", st.tones, st.brush_px, st.replica_lines, st.opacity_mode, sess.renders_hash);
+        let rkey = format!("{tw}x{th}|{}|{}|{}|{:?}|{}|{}|{}|{}", st.tones, st.brush_px, st.replica_lines, st.opacity_mode, sess.renders_hash, st.depth, st.coat, st.line_px);
         if let Some((k, rx)) = &st.replica_rx {
             if let Ok((plan, score, sim)) = rx.try_recv() {
                 let k = k.clone();
@@ -254,7 +379,8 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
         if !current && st.replica_rx.is_none() {
             if let Some(src) = sess.renders.get("original").cloned() {
                 let outline = sess.renders.get("outline").cloned();
-                let o = ReplicaOptions { tones: st.tones, brush_px: st.brush_px, overlap: 0.85, lines: st.replica_lines, opacity_control: st.opacity_mode != OpacityMode::None };
+                let o = ReplicaOptions { tones: st.tones, brush_px: st.brush_px, overlap: 0.85, lines: st.replica_lines, opacity_control: st.opacity_mode != OpacityMode::None,
+                    glaze: (st.depth && st.opacity_mode != OpacityMode::Buttons).then_some(st.coat), line_brush_px: Some(st.line_px), ..Default::default() };
                 let (tx, rx) = channel();
                 std::thread::spawn(move || {
                     let plan = plan_replica(&src, outline.as_ref(), tw, th, &o);
@@ -271,24 +397,13 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
         if t0.elapsed() >= Duration::from_secs(3) {
             #[cfg(feature = "autodraw")]
             match mouse_location() {
-                Ok(p) => match target {
-                    Target::Corner(i) => st.corner[i] = Some(p),
-                    Target::Brush => st.tools.brush = Some(p),
-                    Target::SliderZero => st.tools.slider[0] = Some(p),
-                    Target::SliderFull => st.tools.slider[1] = Some(p),
-                    Target::Button(i) => { if st.tools.buttons.len() <= i { st.tools.buttons.resize(i + 1, None); } st.tools.buttons[i] = Some(p); }
-                    Target::FullButton => st.tools.full = Some(p),
-                },
+                Ok(p) => st.set_target(target, p),
                 Err(e) => st.status = format!("Could not read the mouse position: {e}"),
             }
             #[cfg(not(feature = "autodraw"))]
             let _ = target;
             st.capture = None;
             minimize = Some(false);
-            if let (Some(a0), Some(b0)) = (st.corner[0], st.corner[1]) {
-                let (x0, y0, x1, y1) = (a0.0.min(b0.0), a0.1.min(b0.1), a0.0.max(b0.0), a0.1.max(b0.1));
-                if x1 - x0 > 20 && y1 - y0 > 20 { st.area = Some([x0 as f64, y0 as f64, (x1 - x0) as f64, (y1 - y0) as f64]); }
-            }
         }
         ctx.request_repaint_after(Duration::from_millis(100));
     }
@@ -321,8 +436,16 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
             ui.radio_value(&mut st.source, 3, "Exact replica (shading + lines)");
             if st.source == 2 { ui.add(egui::Slider::new(&mut st.detail, 0.6..=4.0).text("Simplify (px)")); }
             if st.source == 3 {
-                ui.add(egui::Slider::new(&mut st.tones, 2..=8).text("Shades (incl. paper white)"));
-                ui.add(egui::Slider::new(&mut st.brush_px, 1.0..=40.0).text("Brush size in your program (px)"));
+                ui.checkbox(&mut st.depth, "Depth mode: build smooth shading from light coats (best for 3D-looking pictures)");
+                if st.depth {
+                    ui.add(egui::Slider::new(&mut st.coat, 0.1..=0.5).text("Opacity of each coat"));
+                    ui.label(RichText::new("Darker areas get more coats; pure black gets one solid pass. Needs the opacity slider (not per-shade buttons).").small().weak());
+                } else {
+                    ui.add(egui::Slider::new(&mut st.tones, 2..=8).text("Shades (incl. paper white)"));
+                }
+                ui.add(egui::Slider::new(&mut st.brush_px, 1.0..=40.0).text("Fill brush size (px)"));
+                ui.add(egui::Slider::new(&mut st.line_px, 1.0..=10.0).text("Line brush size (px)"));
+                ui.label(RichText::new("Thin parts (ink lines, hatching) are traced along their centre with the line brush.").small().weak());
                 ui.label(RichText::new("Set the same brush size in your drawing program, with hardness 100% for the cleanest result.").small().weak());
                 ui.checkbox(&mut st.replica_lines, "Draw the outlines on top");
                 match &st.replica {
@@ -348,6 +471,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                     if ui.add_enabled(st.capture.is_none() && st.run.is_none() && cfg!(feature = "autodraw"), egui::Button::new(label)).clicked() { st.capture = Some((Target::Corner(i), Instant::now())); }
                 }
             });
+            if ui.add_enabled(st.run.is_none() && cfg!(feature = "autodraw"), egui::Button::new("Select area on screen (drag a box)")).clicked() { start_pick(st, PickWhat::Area, ctx); }
             if let Some(ar) = st.area.as_mut() {
                 ui.horizontal(|ui| {
                     ui.label("Area:");
@@ -365,15 +489,20 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                 ui.label(RichText::new("Piccasso clicks these before each shade. Record them the same way: click, then hover over the tool for 3 seconds.").small());
                 let can = st.capture.is_none() && st.run.is_none() && cfg!(feature = "autodraw");
                 let mut cap: Option<Target> = None;
+                let mut pick_tool: Option<Target> = None;
                 let mut tool_btn = |ui: &mut egui::Ui, t: Target, label: &str, val: Option<(i32, i32)>, capture: Option<(Target, Instant)>| {
                     let text = match (capture, val) {
                         (Some((c, t0)), _) if c == t => format!("Hover now… {}", 3 - t0.elapsed().as_secs().min(3)),
                         (_, Some(p)) => format!("{label} ✔ ({}, {})", p.0, p.1),
                         _ => label.to_string(),
                     };
-                    if ui.add_enabled(can, egui::Button::new(text)).clicked() { cap = Some(t); }
+                    ui.horizontal(|ui| {
+                        if ui.add_enabled(can, egui::Button::new(text)).on_hover_text("Click, then hold the mouse over the tool for 3 seconds").clicked() { cap = Some(t); }
+                        if ui.add_enabled(can, egui::Button::new("Pick on screen")).on_hover_text("Shows your screen full-size: click the tool").clicked() { pick_tool = Some(t); }
+                    });
                 };
-                tool_btn(ui, Target::Brush, "Brush button (optional)", st.tools.brush, st.capture);
+                tool_btn(ui, Target::Brush, "Fill brush button (optional)", st.tools.brush, st.capture);
+                tool_btn(ui, Target::LineBrush, "Line brush button (optional)", st.tools.line_brush, st.capture);
                 ui.horizontal(|ui| {
                     ui.label("Opacity:");
                     ui.selectable_value(&mut st.opacity_mode, OpacityMode::Slider, "Slider");
@@ -402,7 +531,24 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                         ui.label(RichText::new("Shades are made by spacing the strokes: lighter shades get sparser rows, like shading with one pencil.").small().weak());
                     }
                 }
+                ui.add_space(4.0);
+                ui.strong("Brush size slider (optional)");
+                ui.horizontal(|ui| {
+                    tool_btn(ui, Target::SizeMin, "Smallest end", st.tools.size_slider[0], st.capture);
+                });
+                ui.horizontal(|ui| {
+                    tool_btn(ui, Target::SizeMax, "Largest end", st.tools.size_slider[1], st.capture);
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Sizes at the ends:");
+                    ui.add(egui::DragValue::new(&mut st.tools.size_range.0).range(0.1..=500.0).suffix(" px"));
+                    ui.label("to");
+                    ui.add(egui::DragValue::new(&mut st.tools.size_range.1).range(1.0..=2000.0).suffix(" px"));
+                    ui.checkbox(&mut st.tools.size_log, "logarithmic");
+                });
+                ui.label(RichText::new("When set, Piccasso sets the fill size before fill passes and the line size before fine passes by clicking the slider.").small().weak());
                 if let Some(t) = cap { st.capture = Some((t, Instant::now())); }
+                if let Some(t) = pick_tool { start_pick(st, PickWhat::Tool(t), ctx); }
             }
             ui.add_space(6.0);
             ui.strong("3. Speed and precision");
