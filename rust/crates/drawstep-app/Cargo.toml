@@ -2,7 +2,6 @@
 name = "drawstep-app"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
 description = "DrawStep desktop app (egui)."
 
 [[bin]]
@@ -16,8 +15,8 @@ ai = ["dep:ureq"]
 
 [dependencies]
 drawstep-core = { path = "../drawstep-core" }
-eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
-egui_extras = { version = "0.31" }
+eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "wayland", "x11", "accesskit"] }
+egui = "0.31"
 rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "tokio"] }
 directories = "6"
 serde = { version = "1", features = ["derive"] }

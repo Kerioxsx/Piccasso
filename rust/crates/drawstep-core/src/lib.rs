@@ -15,6 +15,7 @@ pub mod render;
 pub mod shared;
 pub mod steps;
 pub mod store;
+pub use uuid;
 
 use base64::Engine;
 

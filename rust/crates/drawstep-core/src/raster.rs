@@ -17,6 +17,7 @@ fn paint(img: &mut Rgba, pts: &[[f64; 2]], closed: bool, r: i64, col: [u8; 3]) {
     for (i, &v) in m.iter().enumerate() {
         if v != 0 {
             img.data[i * 4..i * 4 + 3].copy_from_slice(&col);
+            img.data[i * 4 + 3] = 255;
         }
     }
 }
