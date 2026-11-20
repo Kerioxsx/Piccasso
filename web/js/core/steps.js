@@ -1,6 +1,6 @@
 // Turns an analysis (see analysis.js) into an image-specific step-by-step
 // tutorial using the shared text templates in shared/strings.<lang>.json.
-// Mirrored in rust/crates/drawstep-core/src/steps.rs.
+// Mirrored in rust/crates/piccasso-core/src/steps.rs.
 
 import { posCode } from './analysis.js';
 

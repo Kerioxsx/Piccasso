@@ -1,8 +1,8 @@
-// DrawStep image-processing primitives.
+// Piccasso image-processing primitives.
 //
 // Every function here is pure and DOM-free so it can run in the main thread,
 // in a Web Worker, or under Node's test runner. The algorithms are specified in
-// docs/ALGORITHMS.md and mirrored 1:1 in rust/crates/drawstep-core/src/imgproc.rs;
+// docs/ALGORITHMS.md and mirrored 1:1 in rust/crates/piccasso-core/src/imgproc.rs;
 // shared test vectors (shared/test-vectors.json) keep the two in step.
 //
 // Types:

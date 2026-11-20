@@ -8,7 +8,7 @@ export async function renderLibrary(main) {
   main.appendChild(h('div.stack',
     h('div.row', h('h1', { style: { margin: 0 } }, 'Your projects'),
       h('button.btn.small', { type: 'button', style: { marginLeft: 'auto' }, on: { click: importProjectFile } }, icon('file'), 'Import project file')),
-    h('p.small.muted', 'Projects are saved on this device only. Export a project file to back it up or open it in the DrawStep desktop app.'),
+    h('p.small.muted', 'Projects are saved on this device only. Export a project file to back it up or open it in the Piccasso desktop app.'),
     list));
 
   async function refresh() {
@@ -27,7 +27,7 @@ export async function renderLibrary(main) {
         h('button.btn.small.ghost.danger', { type: 'button', 'aria-label': `Delete ${p.name}`, on: { click: async () => {
           if (!(await confirmDialog('Delete project?', `“${p.name}” will be removed from this device. This can't be undone.`, 'Delete', true))) return;
           await app.store.delete(p.id); await app.renderCache.delete(p.id);
-          if (app.project && app.project.id === p.id) { app.project = null; sessionStorage.removeItem('drawstep.current'); }
+          if (app.project && app.project.id === p.id) { app.project = null; sessionStorage.removeItem('piccasso.current'); }
           toast('Project deleted'); refresh();
         } } }, icon('trash')));
       list.appendChild(projectCard(p, actions));

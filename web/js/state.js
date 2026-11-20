@@ -3,7 +3,7 @@ import { ProjectStore, IDBBackend, MemoryBackend } from './core/store.js';
 import { importProject } from './core/project.js';
 import { sourceToRGBA, rgbaToCanvas } from './ui/imageio.js';
 
-const SETTINGS_KEY = 'drawstep.settings.v1';
+const SETTINGS_KEY = 'piccasso.settings.v1';
 export const DEFAULT_SETTINGS = {
   theme: 'system', textScale: 1, motion: 'system', autoRead: false,
   holdToUnlock: true, holdMs: 1200, keepAwake: true, lockTimer: true,
@@ -37,7 +37,7 @@ class RenderCache {
   _open() {
     if (!('indexedDB' in globalThis)) return Promise.resolve(null);
     if (!this.db) this.db = new Promise((res) => {
-      const r = indexedDB.open('drawstep-renders', 1);
+      const r = indexedDB.open('piccasso-renders', 1);
       r.onupgradeneeded = () => r.result.createObjectStore('renders', { keyPath: 'id' });
       r.onsuccess = () => res(r.result);
       r.onerror = () => res(null);
@@ -92,12 +92,12 @@ export const app = {
     applySettings(this.settings);
   },
   get aiKey() {
-    return this.aiKeySession || safeGet(localStorage, 'drawstep.aikey') || safeGet(sessionStorage, 'drawstep.aikey') || '';
+    return this.aiKeySession || safeGet(localStorage, 'piccasso.aikey') || safeGet(sessionStorage, 'piccasso.aikey') || '';
   },
   setAiKey(key, remember) {
     this.aiKeySession = key || null;
-    safeDel(localStorage, 'drawstep.aikey'); safeDel(sessionStorage, 'drawstep.aikey');
-    if (key) safeSet(remember ? localStorage : sessionStorage, 'drawstep.aikey', key);
+    safeDel(localStorage, 'piccasso.aikey'); safeDel(sessionStorage, 'piccasso.aikey');
+    if (key) safeSet(remember ? localStorage : sessionStorage, 'piccasso.aikey', key);
   },
 
   async setProject(p, { src = null } = {}) {
@@ -120,7 +120,7 @@ export const app = {
     return p;
   },
   async loadDemo() {
-    const res = await fetch('demo/demo-project.drawstep.json');
+    const res = await fetch('demo/demo-project.piccasso.json');
     if (!res.ok) throw new Error('The demo project could not be loaded.');
     const p = importProject(await res.text(), { newId: true });
     p.createdAt = p.updatedAt = new Date().toISOString();

@@ -1,4 +1,4 @@
-/* DrawStep — calm sketchbook styling. Light + dark themes via tokens. */
+/* Piccasso — calm sketchbook styling. Light + dark themes via tokens. */
 :root {
   --paper: #f6f3ed; --paper-2: #efeae1; --card: #fffdf9; --ink: #24221e; --ink-2: #5b574f; --line: #ddd6c9;
   --accent: #2f7466; --accent-ink: #ffffff; --accent-soft: #dcebe6; --warn: #a24d1c; --danger: #b3261e; --ok: #2e7d32;

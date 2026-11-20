@@ -8,14 +8,14 @@ import { aiRewriteSteps, mergeAiSteps } from '../ai.js';
 
 /** Ask once per session before any image leaves the device. */
 async function aiConsent() {
-  if (sessionStorage.getItem('drawstep.aiConsent') === 'yes') return true;
+  if (sessionStorage.getItem('piccasso.aiConsent') === 'yes') return true;
   const ok = await dialog({
     title: 'Send this picture to the AI helper?',
     body: h('div', h('p', 'To write personalised instructions, a smaller copy of your prepared picture and the automatic analysis will be sent to Anthropic\'s Claude API using your API key.'),
       h('p.small.muted', 'Nothing else is sent. You can turn this off at any time in Settings. If you choose "Keep it on this device", the built-in steps are used.')),
     buttons: [{ label: 'Keep it on this device', value: false }, { label: 'Send and continue', value: true, primary: true }],
   });
-  if (ok) sessionStorage.setItem('drawstep.aiConsent', 'yes');
+  if (ok) sessionStorage.setItem('piccasso.aiConsent', 'yes');
   return !!ok;
 }
 

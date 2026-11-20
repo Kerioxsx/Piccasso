@@ -151,4 +151,4 @@ export function fmtTime(sec) {
 }
 
 /** Navigate to a route without importing the router (avoids import cycles). */
-export const nav = (route) => window.dispatchEvent(new CustomEvent('drawstep:navigate', { detail: route }));
+export const nav = (route) => window.dispatchEvent(new CustomEvent('piccasso:navigate', { detail: route }));

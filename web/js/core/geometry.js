@@ -1,5 +1,5 @@
 // Perspective geometry shared by AR alignment and drawing comparison.
-// Mirrored in rust/crates/drawstep-core/src/geometry.rs.
+// Mirrored in rust/crates/piccasso-core/src/geometry.rs.
 
 import { blur2, otsu, labelComponents } from './image.js';
 

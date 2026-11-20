@@ -1,5 +1,5 @@
 // Shared conformance vectors: the JS engine computes them, the Rust engine must
-// reproduce them (rust/crates/drawstep-core/tests/vectors.rs).
+// reproduce them (rust/crates/piccasso-core/tests/vectors.rs).
 import { makeRGBA, toGray, blur2, sobel, colorSobel, otsu, foregroundFromBorder, cleanMask, labelComponents,
   traceBoundary, douglasPeucker, posterizeLevels, prepareImage, resizeBox, percentileThreshold } from '../web/js/core/image.js';
 import { analyze } from '../web/js/core/analysis.js';

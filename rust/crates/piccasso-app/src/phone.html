@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Piccasso · Phone</title>
+<style>
+:root{--ink:#24221e;--paper:#f6f3ed;--accent:#2f7466;--ease:cubic-bezier(.23,1,.32,1)}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#000;color:#fff;font:16px/1.4 system-ui,-apple-system,sans-serif}
+.home{min-height:100%;background:var(--paper);color:var(--ink);padding:24px 16px calc(24px + env(safe-area-inset-bottom))}
+h1{font-family:Georgia,serif;font-weight:600;margin:0 0 8px}p{margin:0 0 14px;color:#5b574f}
+.choice{display:block;width:100%;text-align:left;border:1px solid #ddd6c9;background:#fffdf9;border-radius:14px;padding:16px;margin:0 0 12px;font:inherit;color:inherit;transition:transform 140ms var(--ease)}
+.choice:active{transform:scale(.97)}.choice b{display:block;font-size:1.1rem;margin-bottom:4px}
+.stage{position:fixed;inset:0;display:none}.stage video,.stage img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#ov{position:absolute;left:50%;top:45%;transform-origin:center;pointer-events:none;max-width:none}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:10px 12px calc(12px + env(safe-area-inset-bottom));background:rgba(20,20,20,.85);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bar button,.bar label{font:inherit;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:10px 12px;min-height:44px}
+.bar input[type=range]{width:120px;accent-color:#7cc4b3}
+.status{position:absolute;top:calc(10px + env(safe-area-inset-top));left:10px;background:rgba(0,0,0,.6);padding:6px 10px;border-radius:999px;font-weight:600;font-size:.9rem}
+.surface{position:absolute;inset:0;touch-action:none}
+</style></head>
+<body>
+<div class="home" id="home">
+  <h1>Piccasso on your phone</h1>
+  <p>Connected to Piccasso on your computer. Nothing leaves your Wi-Fi network.</p>
+  <button class="choice" id="go-cam"><b>Be the computer's camera</b>Point the phone at your paper. The computer shows the guide over this camera picture.</button>
+  <button class="choice" id="go-ar"><b>See the guide here (AR view)</b>Look at your paper through this phone with the computer's guide on top, to trace.</button>
+  <p style="font-size:.9rem">Tip: put the phone on a stand or a stack of books above the paper so the picture stays steady.</p>
+</div>
+<div class="stage" id="stage">
+  <video id="v" playsinline muted autoplay></video>
+  <img id="ov" alt="">
+  <div class="surface" id="surf"></div>
+  <div class="status" id="st">Starting camera…</div>
+  <div class="bar" id="bar"></div>
+</div>
+<script>
+const T = '__TOKEN__';
+const q = (p) => p + (p.includes('?') ? '&' : '?') + 't=' + T;
+const $ = (id) => document.getElementById(id);
+let stream = null, wake = null, mode = '';
+async function keepAwake(){ try{ if('wakeLock' in navigator) wake = await navigator.wakeLock.request('screen'); }catch(e){} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && mode) keepAwake(); });
+async function camera(){
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+    $('v').srcObject = stream; await $('v').play().catch(()=>{});
+    return true;
+  }catch(e){
+    $('st').textContent = 'Camera unavailable (' + (e.name || e) + '). Use “Send a photo” instead.';
+    return false;
+  }
+}
+function start(m){ mode = m; $('home').style.display = 'none'; $('stage').style.display = 'block'; keepAwake(); }
+
+// ---- Mode 1: stream camera frames to the computer
+$('go-cam').onclick = async () => {
+  start('cam');
+  const ok = await camera();
+  const bar = $('bar');
+  const snap = document.createElement('input'); snap.type = 'file'; snap.accept = 'image/*'; snap.capture = 'environment'; snap.hidden = true;
+  const sendBtn = document.createElement('button'); sendBtn.textContent = 'Send a photo';
+  sendBtn.onclick = () => snap.click();
+  snap.onchange = async () => { const f = snap.files[0]; if (f) { await fetch(q('/frame'), { method: 'POST', body: f }); $('st').textContent = 'Photo sent to your computer'; } };
+  const pause = document.createElement('button'); pause.textContent = 'Pause';
+  let paused = false; pause.onclick = () => { paused = !paused; pause.textContent = paused ? 'Resume' : 'Pause'; };
+  bar.append(sendBtn, pause, snap);
+  if (!ok) return;
+  const c = document.createElement('canvas'); const ctx = c.getContext('2d');
+  let n = 0, t0 = performance.now();
+  const loop = async () => {
+    if (!paused && $('v').videoWidth) {
+      const s = 960 / Math.max($('v').videoWidth, $('v').videoHeight);
+      c.width = Math.round($('v').videoWidth * s); c.height = Math.round($('v').videoHeight * s);
+      ctx.drawImage($('v'), 0, 0, c.width, c.height);
+      const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.72));
+      try { await fetch(q('/frame'), { method: 'POST', body: blob }); n++; } catch (e) { $('st').textContent = 'Lost connection to the computer'; }
+      const fps = n / ((performance.now() - t0) / 1000);
+      $('st').textContent = 'Sending to your computer · ' + fps.toFixed(1) + ' fps';
+    }
+    setTimeout(loop, 60);
+  };
+  loop();
+};
+
+// ---- Mode 2: AR viewer (guide from the computer over this camera)
+$('go-ar').onclick = async () => {
+  start('ar');
+  await camera();
+  const ov = $('ov');
+  let scale = 1, rot = 0, x = 0, y = 0, locked = false;
+  const apply = () => { ov.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) rotate(${rot}deg) scale(${scale})`; };
+  const load = () => { ov.src = q('/overlay.png') + '&_=' + Date.now(); };
+  ov.onload = () => { ov.style.width = Math.min(innerWidth * 0.85, ov.naturalWidth) + 'px'; apply(); $('st').textContent = locked ? 'Alignment locked' : 'Manual alignment: drag, pinch to resize and rotate'; };
+  ov.onerror = () => { $('st').textContent = 'No guide yet: press “Send guide to phone” on the computer'; setTimeout(load, 2000); };
+  load();
+  const bar = $('bar');
+  const op = document.createElement('label'); op.textContent = 'Opacity '; const r = document.createElement('input'); r.type = 'range'; r.min = 10; r.max = 100; r.value = 55; op.append(r);
+  r.oninput = () => { ov.style.opacity = r.value / 100; }; ov.style.opacity = .55;
+  const lockB = document.createElement('button'); lockB.textContent = 'Lock alignment';
+  lockB.onclick = () => { locked = !locked; lockB.textContent = locked ? 'Unlock' : 'Lock alignment'; $('st').textContent = locked ? 'Alignment locked' : 'Manual alignment'; };
+  const refresh = document.createElement('button'); refresh.textContent = 'Reload guide'; refresh.onclick = load;
+  const reset = document.createElement('button'); reset.textContent = 'Recenter'; reset.onclick = () => { scale = 1; rot = 0; x = 0; y = 0; apply(); };
+  bar.append(op, lockB, reset, refresh);
+  const pts = new Map(); let last = null;
+  const snapG = () => { const a = [...pts.values()]; if (a.length === 1) return { x: a[0][0], y: a[0][1] }; const [p, s] = a; return { x: (p[0] + s[0]) / 2, y: (p[1] + s[1]) / 2, d: Math.hypot(p[0] - s[0], p[1] - s[1]), a: Math.atan2(s[1] - p[1], s[0] - p[0]) }; };
+  const surf = $('surf');
+  surf.onpointerdown = (e) => { if (locked) return; surf.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); last = snapG(); };
+  surf.onpointermove = (e) => { if (!pts.has(e.pointerId) || locked) return; pts.set(e.pointerId, [e.clientX, e.clientY]); const g = snapG(); x += g.x - last.x; y += g.y - last.y; if (g.d && last.d) { scale *= g.d / last.d; rot += (g.a - last.a) * 180 / Math.PI; } last = g; apply(); };
+  surf.onpointerup = surf.onpointercancel = (e) => { pts.delete(e.pointerId); last = pts.size ? snapG() : null; };
+};
+</script>
+</body></html>

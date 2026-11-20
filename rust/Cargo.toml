@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/drawstep-core", "crates/drawstep-app"]
+members = ["crates/piccasso-core", "crates/piccasso-app"]
 
 [workspace.package]
 version = "0.1.0"

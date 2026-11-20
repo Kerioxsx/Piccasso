@@ -1,8 +1,8 @@
 {
-  "name": "drawstep",
+  "name": "piccasso",
   "version": "0.1.0",
   "private": true,
-  "description": "DrawStep – AI drawing coach (web PWA + Rust desktop). No npm dependencies.",
+  "description": "Piccasso – AI drawing coach (web PWA + Rust desktop). No npm dependencies.",
   "type": "module",
   "scripts": {
     "serve": "python3 -m http.server 8080 -d web",

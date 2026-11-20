@@ -1,7 +1,7 @@
 // Camera-assisted drawing comparison. Works entirely on-device: a photo of the
 // user's paper is warped flat, pencil lines are extracted and compared with
 // the guide's contours. Feedback is structural and gentle, never a score.
-// Mirrored in rust/crates/drawstep-core/src/compare.rs.
+// Mirrored in rust/crates/piccasso-core/src/compare.rs.
 
 import { blur2, dilate } from './image.js';
 import { rasterPolyline } from './geometry.js';

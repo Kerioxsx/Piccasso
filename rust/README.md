@@ -1,12 +1,12 @@
-# DrawStep desktop (Rust)
+# Piccasso desktop (Rust)
 
-A native Rust app. `drawstep-core` does decoding, image processing, analysis, step generation, motion paths and auto-draw strokes, comparison, the lock state machine, project format and storage. `drawstep-app` is the egui interface plus platform services: keep-awake, file dialogs, webcam, phone bridge (local HTTPS server), mouse control and the optional AI helper.
+A native Rust app. `piccasso-core` does decoding, image processing, analysis, step generation, motion paths and auto-draw strokes, comparison, the lock state machine, project format and storage. `piccasso-app` is the egui interface plus platform services: keep-awake, file dialogs, webcam, phone bridge (local HTTPS server), mouse control and the optional AI helper.
 
 ## Build and run
 ```bash
-cargo run --release -p drawstep-app
+cargo run --release -p piccasso-app
 ```
-Cargo features of `drawstep-app`:
+Cargo features of `piccasso-app`:
 
 | Feature | Default | Adds |
 |---|---|---|
@@ -18,9 +18,9 @@ Cargo features of `drawstep-app`:
 
 Linux build/runtime packages: a desktop with X11 or Wayland, `libxkbcommon-x11` (usually installed). Webcam (`camera`) may need `libv4l`/`clang`.
 
-Data folder: the platform data directory (`~/.local/share/drawstep`, `%APPDATA%\DrawStep`, `~/Library/Application Support/app.DrawStep.DrawStep`), or `DRAWSTEP_DATA_DIR`.
+Data folder: the platform data directory (`~/.local/share/piccasso`, `%APPDATA%\Piccasso`, `~/Library/Application Support/app.Piccasso.Piccasso`), or `PICCASSO_DATA_DIR`.
 
-Developer flags: `DRAWSTEP_START=<screen>` opens the demo on a screen (`workspace`, `prepare`, `locked`, `overlay`, `compare`, `autodraw`, …) and `DRAWSTEP_STEP=<n>` picks the step. `drawstep --autodraw-test X Y W H [speed]` draws the demo outline into a screen rectangle; `drawstep --serve-phone SECONDS` runs only the phone bridge.
+Developer flags: `PICCASSO_START=<screen>` opens the demo on a screen (`workspace`, `prepare`, `locked`, `overlay`, `compare`, `autodraw`, …) and `PICCASSO_STEP=<n>` picks the step. `piccasso --autodraw-test X Y W H [speed]` draws the demo outline into a screen rectangle; `piccasso --serve-phone SECONDS` runs only the phone bridge.
 
 ## Test
 ```bash

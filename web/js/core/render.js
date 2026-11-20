@@ -1,6 +1,6 @@
 // Drawing-style renderers. Each turns a prepared RGBA image into one of the
 // preparation styles from shared/styles.json. Mirrored in
-// rust/crates/drawstep-core/src/render.rs.
+// rust/crates/piccasso-core/src/render.rs.
 
 import {
   makeRGBA, toGray, grayToRGBA, blur2, percentileThreshold,

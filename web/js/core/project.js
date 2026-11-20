@@ -1,8 +1,10 @@
-// DrawStep portable project format, version 1.
-// The schema lives in schema/drawstep-project.v1.schema.json; the Rust app
-// reads and writes the same structure (rust/crates/drawstep-core/src/project.rs).
+// Piccasso portable project format, version 1.
+// The schema lives in schema/piccasso-project.v1.schema.json; the Rust app
+// reads and writes the same structure (rust/crates/piccasso-core/src/project.rs).
 
-export const FORMAT = 'drawstep-project';
+export const FORMAT = 'piccasso-project';
+/** Files saved before the rename to Piccasso. */
+export const LEGACY_FORMATS = ['drawstep-project'];
 export const VERSION = 1;
 export const STYLES = ['original', 'clean_outline', 'simplified_outline', 'pencil_sketch', 'light_sketch', 'contour_only', 'shading_guide', 'basic_shapes'];
 export const MEDIUMS = ['graphite', 'color'];
@@ -31,7 +33,7 @@ export const defaultProgress = () => ({ currentStep: 0, completed: [], skipped: 
 export const defaultView = () => ({ zoom: 1, panX: 0, panY: 0, brightness: 100, contrast: 100, opacity: 100, fit: 'page' });
 export const defaultAr = () => ({ opacity: 0.5, scale: 1, rotation: 0, offsetX: 0, offsetY: 0, corners: null, layer: 'outline', alignmentLocked: false });
 
-export function createProject({ name, source, app = { app: 'drawstep-web', version: '0.1.0' } }) {
+export function createProject({ name, source, app = { app: 'piccasso-web', version: '0.1.0' } }) {
   const now = new Date().toISOString();
   return {
     format: FORMAT, version: VERSION, id: uuid(), name: name || 'Untitled drawing',
@@ -47,9 +49,9 @@ const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
 export function validateProject(p) {
   const e = [];
   if (!isObj(p)) return { ok: false, errors: ['Project must be a JSON object.'] };
-  if (p.format !== FORMAT) e.push(`format must be "${FORMAT}".`);
+  if (p.format !== FORMAT && !LEGACY_FORMATS.includes(p.format)) e.push(`format must be "${FORMAT}".`);
   if (!Number.isInteger(p.version) || p.version < 1) e.push('version must be a positive integer.');
-  else if (p.version > VERSION) e.push(`This project was made with a newer DrawStep (format v${p.version}). Please update the app.`);
+  else if (p.version > VERSION) e.push(`This project was made with a newer Piccasso (format v${p.version}). Please update the app.`);
   if (typeof p.id !== 'string' || !p.id) e.push('id is required.');
   if (typeof p.name !== 'string') e.push('name must be a string.');
   if (!isObj(p.source)) e.push('source is required.');
@@ -75,7 +77,7 @@ export function validateProject(p) {
 
 /** Fill in defaults for optional sections so older/partial files load cleanly. */
 export function normalizeProject(p) {
-  const out = { ...p };
+  const out = { ...p, format: FORMAT };
   out.prep = { ...defaultPrep(), ...(p.prep || {}) };
   out.prep.crop = { ...defaultPrep().crop, ...(p.prep && p.prep.crop) };
   out.prep.paper = { ...defaultPrep().paper, ...(p.prep && p.prep.paper) };
@@ -101,7 +103,7 @@ export function importProject(text, { newId = false } = {}) {
   let obj;
   try { obj = JSON.parse(text); } catch { throw new Error('This file is not valid JSON.'); }
   const v = validateProject(obj);
-  if (!v.ok) throw new Error('This is not a valid DrawStep project:\n• ' + v.errors.join('\n• '));
+  if (!v.ok) throw new Error('This is not a valid Piccasso project:\n• ' + v.errors.join('\n• '));
   const p = normalizeProject(obj);
   if (newId) p.id = uuid();
   return p;

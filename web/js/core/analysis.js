@@ -1,10 +1,10 @@
-// DrawStep local analysis engine ("local-v1").
+// Piccasso local analysis engine ("local-v1").
 //
 // Turns a prepared image into a drawing plan: subject/objects, construction
 // shapes, silhouettes, internal forms, value bands, light direction, detail
 // location and landmarks. All coordinates are normalized: points are
 // (x / width, y / height); ellipse radii are fractions of the image WIDTH.
-// See docs/ALGORITHMS.md. Mirrored in rust/crates/drawstep-core/src/analysis.rs.
+// See docs/ALGORITHMS.md. Mirrored in rust/crates/piccasso-core/src/analysis.rs.
 
 import {
   toGray, blur2, foregroundFromBorder, cleanMask, labelComponents, traceBoundary,

@@ -44,7 +44,7 @@ export async function renderSettings(main) {
       h('div.row',
         h('button.btn.small', { type: 'button', on: { click: async () => { if (navigator.storage && navigator.storage.persist) { const ok = await navigator.storage.persist(); toast(ok ? 'Projects will be kept even when space is low.' : 'The browser did not grant persistent storage.'); } else toast('Not supported in this browser.'); } } }, 'Keep my projects safe'),
         h('button.btn.small.danger', { type: 'button', on: { click: async () => {
-          if (!(await confirmDialog('Delete all DrawStep data?', 'All projects, cached images and settings on this device will be removed. Export anything you want to keep first.', 'Delete everything', true))) return;
+          if (!(await confirmDialog('Delete all Piccasso data?', 'All projects, cached images and settings on this device will be removed. Export anything you want to keep first.', 'Delete everything', true))) return;
           const all = await app.store.list();
           for (const p of all) { await app.store.delete(p.id); await app.renderCache.delete(p.id); }
           try { localStorage.clear(); sessionStorage.clear(); } catch { /* ignore */ }
@@ -53,7 +53,7 @@ export async function renderSettings(main) {
           location.hash = '#/onboarding'; location.reload();
         } } }, 'Delete all local data'))),
     h('section.card.stack', h('h2', 'About'),
-      h('p.small', 'DrawStep web 0.1.0 · Project format v1 · Works offline after the first visit (install it from your browser menu for an app-like experience).'))));
+      h('p.small', 'Piccasso web 0.1.0 · Project format v1 · Works offline after the first visit (install it from your browser menu for an app-like experience).'))));
 
   const cap = await probeAr();
   capBox.textContent = `This device: ${cap.status}. ${cap.reasons.join(' ')}`;

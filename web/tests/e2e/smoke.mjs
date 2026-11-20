@@ -35,7 +35,7 @@ const step = (s) => console.log('•', s);
 try {
   step('onboarding');
   await page.goto(base);
-  await page.getByRole('heading', { name: 'Welcome to DrawStep' }).waitFor();
+  await page.getByRole('heading', { name: 'Welcome to Piccasso' }).waitFor();
   await shot('01-onboarding');
   await page.getByRole('button', { name: 'Try the demo first' }).click();
 

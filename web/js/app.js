@@ -1,4 +1,4 @@
-// DrawStep web app entry: loads shared data, registers the service worker and routes screens.
+// Piccasso web app entry: loads shared data, registers the service worker and routes screens.
 import { app, applySettings } from './state.js';
 import { toast } from './ui/dom.js';
 
@@ -38,7 +38,7 @@ async function router() {
   if (!name) name = app.settings.onboarded ? 'home' : 'onboarding';
   if (!routes[name]) name = 'home';
   if (NEEDS_PROJECT.has(name) && !app.project) {
-    const last = sessionStorage.getItem('drawstep.current');
+    const last = sessionStorage.getItem('piccasso.current');
     if (last) { try { await app.openProject(last); } catch { /* fall through */ } }
     if (!app.project) name = 'home';
   }
@@ -48,7 +48,7 @@ async function router() {
   document.body.classList.remove('immersive');
   document.getElementById('nav-back').hidden = name === 'home' || name === 'onboarding';
   document.querySelectorAll('.topnav a').forEach((a) => a.toggleAttribute('aria-current', a.getAttribute('href') === `#/${name}`));
-  if (app.project) { try { sessionStorage.setItem('drawstep.current', app.project.id); } catch { /* ignore */ } }
+  if (app.project) { try { sessionStorage.setItem('piccasso.current', app.project.id); } catch { /* ignore */ } }
   try {
     const render = await routes[name]();
     if (token !== navToken) return;
@@ -68,12 +68,12 @@ async function start() {
   applySettings(app.settings);
   try { app.shared = await loadShared(app.settings.lang); }
   catch {
-    document.getElementById('main').innerHTML = '<div class="card notice">DrawStep could not load its data files. If you opened index.html directly from disk, serve the folder over http (see README).</div>';
+    document.getElementById('main').innerHTML = '<div class="card notice">Piccasso could not load its data files. If you opened index.html directly from disk, serve the folder over http (see README).</div>';
     return;
   }
   window.addEventListener('hashchange', router);
   document.getElementById('nav-back').addEventListener('click', () => { if (history.length > 1) history.back(); else go('home'); });
-  window.addEventListener('drawstep:navigate', (e) => go(e.detail));
+  window.addEventListener('piccasso:navigate', (e) => go(e.detail));
   router();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js').catch(() => {});

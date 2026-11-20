@@ -21,7 +21,7 @@ export function renderCompare(main) {
   function intro() {
     body.innerHTML = '';
     body.appendChild(h('div.card.stack',
-      h('p', 'Take a photo of your paper and DrawStep will point out a few things to check, such as size and placement. It\'s friendly feedback about structure, not a score.'),
+      h('p', 'Take a photo of your paper and Piccasso will point out a few things to check, such as size and placement. It\'s friendly feedback about structure, not a score.'),
       h('p.notice.info', '🔒 Your photo stays on this device. It is not uploaded or saved unless you export it.'),
       h('ul.small.muted', h('li', 'Hold the phone straight above the paper.'), h('li', 'Make sure all four corners of the paper are visible.'), h('li', 'A darker table behind the paper helps.')),
       h('div.row',

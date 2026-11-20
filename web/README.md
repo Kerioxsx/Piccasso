@@ -1,4 +1,4 @@
-# DrawStep web app
+# Piccasso web app
 
 Plain HTML/CSS/JavaScript ES modules. No build step, no runtime dependencies.
 

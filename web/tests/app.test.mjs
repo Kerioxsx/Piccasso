@@ -26,7 +26,7 @@ test('project create → export → import round trip', () => {
 });
 
 test('demo sample validates', () => {
-  const text = fs.readFileSync(path.join(ROOT, 'samples/demo-project.drawstep.json'), 'utf8');
+  const text = fs.readFileSync(path.join(ROOT, 'samples/demo-project.piccasso.json'), 'utf8');
   const p = P.importProject(text);
   assert.ok(p.steps.length >= 5);
   assert.ok(p.analysis && p.analysis.engine === 'local-v1');
@@ -36,7 +36,7 @@ test('invalid projects are rejected with readable errors', () => {
   assert.throws(() => P.importProject('not json'), /not valid JSON/);
   assert.throws(() => P.importProject('{"format":"other"}'), /format must be/);
   const newer = { ...P.createProject({ source: src }), version: 99 };
-  assert.throws(() => P.importProject(JSON.stringify(newer)), /newer DrawStep/);
+  assert.throws(() => P.importProject(JSON.stringify(newer)), /newer Piccasso/);
   const badStyle = P.createProject({ source: src }); badStyle.prep.style = 'neon';
   assert.throws(() => P.importProject(JSON.stringify(badStyle)), /prep.style/);
 });

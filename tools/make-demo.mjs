@@ -1,4 +1,4 @@
-// Builds samples/demo-project.drawstep.json (and the web copy) from the
+// Builds samples/demo-project.piccasso.json (and the web copy) from the
 // procedural demo image, running the real pipeline.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,7 +14,7 @@ const png = encodePNG(img);
 const p = createProject({
   name: 'Demo: pear and mug',
   source: { mime: 'image/png', width: img.width, height: img.height, data: png.toString('base64') },
-  app: { app: 'drawstep-tools', version: '0.1.0' },
+  app: { app: 'piccasso-tools', version: '0.1.0' },
 });
 p.id = 'demo-pear-and-mug';
 p.createdAt = p.updatedAt = '2026-11-20T00:00:00.000Z';
@@ -22,7 +22,7 @@ const { analysis, steps } = planProject(img, p.prep, shared);
 p.analysis = analysis;
 p.steps = steps;
 const json = JSON.stringify(p, null, 2);
-for (const out of ['samples/demo-project.drawstep.json', 'web/demo/demo-project.drawstep.json']) {
+for (const out of ['samples/demo-project.piccasso.json', 'web/demo/demo-project.piccasso.json']) {
   fs.mkdirSync(path.dirname(path.join(ROOT, out)), { recursive: true });
   fs.writeFileSync(path.join(ROOT, out), json);
 }

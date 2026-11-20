@@ -27,7 +27,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function record(name, size, fn) {
   const ctx = await browser.newContext({ viewport: size, recordVideo: { dir: TMP, size }, colorScheme: 'light' });
   const page = await ctx.newPage();
-  await page.addInitScript(() => localStorage.setItem('drawstep.settings.v1', JSON.stringify({ onboarded: true, theme: 'light' })));
+  await page.addInitScript(() => localStorage.setItem('piccasso.settings.v1', JSON.stringify({ onboarded: true, theme: 'light' })));
   await page.goto(base + '#/home');
   await fn(page);
   const v = page.video();

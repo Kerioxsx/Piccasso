@@ -11,7 +11,7 @@ export async function exportPNG(canvas, name) {
 }
 
 export function exportProjectFile(project) {
-  download(new Blob([exportProject(project)], { type: 'application/json' }), `${safeName(project.name)}.drawstep.json`);
+  download(new Blob([exportProject(project)], { type: 'application/json' }), `${safeName(project.name)}.piccasso.json`);
 }
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -22,9 +22,9 @@ export function exportStepSheet(project, baseFor) {
     const c = composeGuide(baseFor(s.base), project.analysis, s.layers, { width: 520 });
     return `<section><img src="${c.toDataURL('image/jpeg', 0.85)}" alt="Guide for step ${i + 1}"><div><h2>${i + 1}. ${esc(s.title)}</h2><p>${esc(s.instruction)}</p><p class="tip"><b>Tip:</b> ${esc(s.tip)}</p></div></section>`;
   }).join('\n');
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(project.name)} – DrawStep step sheet</title>
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(project.name)} – Piccasso step sheet</title>
 <style>body{font:15px/1.5 system-ui,sans-serif;color:#222;max-width:900px;margin:24px auto;padding:0 16px}h1{font-family:Georgia,serif}section{display:grid;grid-template-columns:260px 1fr;gap:16px;align-items:start;padding:14px 0;border-top:1px solid #ddd;break-inside:avoid}img{width:100%;border:1px solid #ccc;border-radius:8px}h2{font-size:1.05rem;margin:0 0 6px}.tip{color:#555}button{font:inherit;padding:10px 16px;margin-bottom:12px}@media print{button{display:none}}@media(max-width:600px){section{grid-template-columns:1fr}}</style></head>
-<body><button onclick="print()">Print / Save as PDF</button><h1>${esc(project.name)}</h1><p>${project.steps.length} steps · difficulty: ${esc(project.prep.difficulty.replace('_', ' '))} · made with DrawStep</p>${items}</body></html>`;
+<body><button onclick="print()">Print / Save as PDF</button><h1>${esc(project.name)}</h1><p>${project.steps.length} steps · difficulty: ${esc(project.prep.difficulty.replace('_', ' '))} · made with Piccasso</p>${items}</body></html>`;
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const w = window.open(url, '_blank');

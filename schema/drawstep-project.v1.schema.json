@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://drawstep.app/schema/drawstep-project.v1.schema.json",
-  "title": "DrawStep project (format v1)",
-  "description": "Portable project file shared by the DrawStep web app and the DrawStep Rust desktop app. File extension: .drawstep.json. Unknown properties MUST be preserved by readers that re-save the file.",
+  "$id": "https://piccasso.app/schema/piccasso-project.v1.schema.json",
+  "title": "Piccasso project (format v1)",
+  "description": "Portable project file shared by the Piccasso web app and the Piccasso Rust desktop app. File extension: .piccasso.json. Unknown properties MUST be preserved by readers that re-save the file.",
   "type": "object",
   "required": ["format", "version", "id", "name", "source"],
   "properties": {
-    "format": { "const": "drawstep-project" },
+    "format": { "const": "piccasso-project" },
     "version": { "type": "integer", "minimum": 1, "description": "Readers reject files with a version newer than they support." },
     "id": { "type": "string", "minLength": 1 },
     "name": { "type": "string" },

@@ -13,7 +13,7 @@ export class MemoryBackend {
 }
 
 export class IDBBackend {
-  constructor(name = 'drawstep', store = 'projects') { this.name = name; this.store = store; this._db = null; }
+  constructor(name = 'piccasso', store = 'projects') { this.name = name; this.store = store; this._db = null; }
   _open() {
     if (this._db) return this._db;
     this._db = new Promise((resolve, reject) => {

@@ -1,6 +1,6 @@
 {
-  "name": "DrawStep – drawing coach",
-  "short_name": "DrawStep",
+  "name": "Piccasso – drawing coach",
+  "short_name": "Piccasso",
   "description": "Turn any picture into step-by-step drawing guidance, a locked reference screen and a camera tracing overlay.",
   "start_url": "./index.html#/home",
   "scope": "./",
