@@ -50,6 +50,7 @@ impl Tools {
         let (lo, hi) = (self.size_range.0.max(0.1), self.size_range.1.max(self.size_range.0 + 0.1));
         let px = px.clamp(lo, hi);
         let t = if self.size_log { (px / lo).ln() / (hi / lo).ln() } else { (px - lo) / (hi - lo) };
+        let t = 0.005 + t * 0.99; // a click exactly on an end point can miss the slider
         Some(((a.0 as f64 + (b.0 - a.0) as f64 * t).round() as i32, (a.1 as f64 + (b.1 - a.1) as f64 * t).round() as i32))
     }
 }
@@ -303,7 +304,8 @@ pub fn run_replica(plan: ReplicaPlan, org: [f64; 2], tools: Tools, mode: Opacity
         if let Some(px) = size_px { if let Some(p) = tools.size_point(px) { pen.click(p)?; } }
         match mode {
             OpacityMode::Slider => if let [Some(z), Some(f)] = tools.slider {
-                let t = opacity.clamp(0.0, 1.0);
+                // stay a hair inside the ends: a click exactly on an end point can miss the slider
+                let t = 0.005 + opacity.clamp(0.0, 1.0) * 0.99;
                 pen.click(((z.0 as f64 + (f.0 - z.0) as f64 * t).round() as i32, (z.1 as f64 + (f.1 - z.1) as f64 * t).round() as i32))?;
             },
             OpacityMode::Buttons => {

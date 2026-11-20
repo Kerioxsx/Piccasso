@@ -231,14 +231,30 @@ fn plan_glaze(g: &Gray, a: f64, o: &ReplicaOptions) -> (Vec<ToneLayer>, Gray) {
     }
     let solid: Vec<u8> = (0..tw * th).map(|i| (coats[i] == usize::MAX && !thin_px[i]) as u8).collect();
     push_layer(&mut layers, &solid, tw, th, 0, 0, 1.0, o, spacing, false);
-    // fine passes: lightest group first, darkest (ink) last
+    // fine passes: each connected thin part (a whole ink line, a hatching stroke)
+    // keeps one darkness, its average, so a line is never split into dashes of
+    // different opacity. Lightest group first, darkest (ink) last.
+    let thin_mask: Vec<u8> = thin_px.iter().map(|&b| b as u8).collect();
+    let (labels, comps) = crate::imgproc::label_components(&thin_mask, tw, th);
+    let mut comp_d = vec![0.0f64; comps.len() + 1];
+    {
+        let mut sum = vec![0.0f64; comps.len() + 1];
+        let mut cnt = vec![0usize; comps.len() + 1];
+        for i in 0..tw * th {
+            let l = labels[i] as usize;
+            if l == 0 { continue; }
+            sum[l] += 1.0 - target.data[i] as f64 / 255.0;
+            cnt[l] += 1;
+        }
+        for l in 1..=comps.len() { if cnt[l] > 0 { comp_d[l] = sum[l] / cnt[l] as f64; } }
+    }
     let groups = [(0.0, 0.3), (0.3, 0.55), (0.55, 0.8), (0.8, 1.01)];
     for (lo, hi) in groups {
         let mut sum = 0.0;
         let mask: Vec<u8> = (0..tw * th).map(|i| {
-            let d = 1.0 - target.data[i] as f64 / 255.0;
-            let on = thin_px[i] && d > lo && d <= hi;
-            if on { sum += d; }
+            let l = labels[i] as usize;
+            let on = l != 0 && comp_d[l] > lo && comp_d[l] <= hi;
+            if on { sum += comp_d[l]; }
             on as u8
         }).collect();
         let n = mask.iter().filter(|&&m| m != 0).count();
