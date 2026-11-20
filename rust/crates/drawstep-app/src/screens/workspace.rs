@@ -1,5 +1,5 @@
 use crate::app::{DrawStepApp, Screen, Session};
-use crate::ui::{compute_rect, draw_layers, primary, Confirm, ConfirmAction, Textures};
+use crate::ui::{compute_rect, primary, Confirm, ConfirmAction, Textures};
 use drawstep_core::lock::{apply_gesture, Gesture, View};
 use drawstep_core::project::Step;
 use drawstep_core::shared::shared;
@@ -14,6 +14,8 @@ pub struct WorkspaceState {
     pub checks: HashSet<String>,
     pub term: Option<String>,
     pub show_local: bool,
+    pub motion_start: Option<std::time::Instant>,
+    pub motion_step: String,
 }
 
 const UV: Rect = Rect { min: egui::Pos2 { x: 0.0, y: 0.0 }, max: egui::Pos2 { x: 1.0, y: 1.0 } };
@@ -33,7 +35,7 @@ pub fn paint_step(painter: &egui::Painter, ctx: &egui::Context, tex: &mut Textur
     }
     if show_guide && base_override.is_none() {
         if let (Some(a), Some(s)) = (&sess.project.analysis, step) {
-            draw_layers(painter, a, &s.layers, rect, opacity.max(0.5), true);
+            crate::ui::draw_layers_ex(painter, a, &s.layers, rect, opacity.max(0.5), true, crate::ui::grid_for(&sess.project));
         }
     }
 }
@@ -94,6 +96,49 @@ pub fn show(app: &mut DrawStepApp, ctx: &egui::Context) {
                 ui.set_width(ui.available_width());
                 ui.label(RichText::new(format!("Tip · {}", step.tip)).size(15.0));
             });
+            if !step.motion.is_empty() {
+                egui::Frame::new().stroke(egui::Stroke::new(1.0_f32, ui.visuals().widgets.noninteractive.bg_stroke.color)).corner_radius(8.0).inner_margin(10.0).show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.strong("Hand movement");
+                    ui.label(RichText::new(&step.motion).size(15.0));
+                    let on = ws.motion_start.is_some() && ws.motion_step == step.id;
+                    if ui.selectable_label(on, if on { "⏹ Stop the motion" } else { "▶ Show me the motion" }).clicked() {
+                        if on { ws.motion_start = None; } else { ws.motion_start = Some(std::time::Instant::now()); ws.motion_step = step.id.clone(); }
+                    }
+                });
+            }
+            if let Some(a) = &p.analysis {
+                let tech = &a.technique;
+                if step.kind == "pressure" && !tech.bands.is_empty() {
+                    let mut order = tech.bands.clone();
+                    order.sort_by(|x, y| y.band.cmp(&x.band));
+                    for (k, b) in order.iter().enumerate() {
+                        let e = drawstep_core::steps::pressure_for(&tech.bands, b.band, sh);
+                        let shade = (235.0 - 195.0 * k as f32 / (order.len().max(2) - 1) as f32) as u8;
+                        ui.horizontal(|ui| {
+                            let (r, _) = ui.allocate_exact_size(vec2(26.0, 26.0), Sense::hover());
+                            ui.painter().circle(r.center(), 12.0, Color32::from_gray(shade), egui::Stroke::new(1.5_f32, ui.visuals().text_color()));
+                            ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, format!("{}", k + 1), egui::FontId::proportional(13.0), if shade < 128 { Color32::WHITE } else { Color32::BLACK });
+                            ui.label(RichText::new(sh.strings.pressure_labels.get(&e.label).cloned().unwrap_or(e.label.clone())).strong());
+                            ui.label(format!("about {}% pressure · {} pencil", e.pct, e.grade));
+                        });
+                        ui.add(egui::ProgressBar::new(e.pct as f32 / 100.0).desired_height(6.0));
+                    }
+                }
+                if step.kind == "color" {
+                    ui.horizontal_wrapped(|ui| {
+                        let mut seen = Vec::new();
+                        for c in &tech.palette {
+                            let name = drawstep_core::steps::color_name(c.rgb, &sh.colors.colors);
+                            if seen.contains(&name) { continue; }
+                            seen.push(name.clone());
+                            let (r, _) = ui.allocate_exact_size(vec2(18.0, 18.0), Sense::hover());
+                            ui.painter().circle(r.center(), 8.0, Color32::from_rgb(c.rgb[0] as u8, c.rgb[1] as u8, c.rgb[2] as u8), egui::Stroke::new(1.0_f32, ui.visuals().text_color()));
+                            ui.label(name);
+                        }
+                    });
+                }
+            }
             if !step.terms.is_empty() {
                 ui.horizontal_wrapped(|ui| {
                     ui.label(RichText::new("What does it mean?").weak());
@@ -123,6 +168,7 @@ pub fn show(app: &mut DrawStepApp, ctx: &egui::Context) {
                 if ui.add(egui::Button::new("🔒 Locked view").min_size(vec2(0.0, 40.0))).clicked() { go = Some(Screen::Locked); }
                 if ui.add(egui::Button::new("📷 Camera overlay").min_size(vec2(0.0, 40.0))).clicked() { go = Some(Screen::Overlay); }
                 if ui.add(egui::Button::new("✔ Check a photo").min_size(vec2(0.0, 40.0))).clicked() { go = Some(Screen::Compare); }
+                if ui.add(egui::Button::new("✏ Auto-draw on PC").min_size(vec2(0.0, 40.0))).on_hover_text("Let DrawStep move the mouse to draw the lines in another program").clicked() { go = Some(Screen::AutoDraw); }
             });
             ui.horizontal_wrapped(|ui| {
                 if ui.button("✏ Edit picture").clicked() { go = Some(Screen::Prepare); }
@@ -178,6 +224,16 @@ pub fn show(app: &mut DrawStepApp, ctx: &egui::Context) {
             painter.text(pos2(area.max.x - 70.0, area.min.y + 10.0), egui::Align2::RIGHT_TOP, "Guide", egui::FontId::proportional(14.0), Color32::from_gray(90));
         } else {
             paint_step(&target, ctx, &mut app.textures, sess, step.as_ref(), draw_rect, !ws.hide_guide, opacity, None);
+        }
+        if let (Some(t0), Some(a), Some(st)) = (ws.motion_start, &sess.project.analysis, &step) {
+            if ws.motion_step == st.id {
+                let strokes = drawstep_core::motion::motion_paths(a, st);
+                let total: f32 = strokes.iter().map(|s| s.points.windows(2).map(|w| (((w[1][0] - w[0][0]) * draw_rect.width() as f64).hypot((w[1][1] - w[0][1]) * draw_rect.height() as f64)) as f32).sum::<f32>().max(30.0)).sum();
+                let dur = (total / (draw_rect.width().abs() * 0.45).max(120.0)).max(2.5);
+                let t = t0.elapsed().as_secs_f32() % (dur + 1.2);
+                crate::ui::draw_motion(&target, &strokes, draw_rect, (t / dur).min(1.0));
+                ctx.request_repaint();
+            } else { ws.motion_start = None; }
         }
         if let Some((p, l)) = &job {
             painter.text(area.left_bottom() + vec2(12.0, -12.0), egui::Align2::LEFT_BOTTOM, format!("Preparing guide images… {}% ({l})", (p * 100.0) as i32), egui::FontId::proportional(14.0), Color32::from_gray(80));

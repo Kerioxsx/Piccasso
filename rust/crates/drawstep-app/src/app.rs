@@ -26,6 +26,7 @@ pub enum Screen {
     Compare,
     Settings,
     Learn,
+    AutoDraw,
 }
 
 /// The project currently open, with decoded source and rendered guides.

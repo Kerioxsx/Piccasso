@@ -122,14 +122,43 @@ pub fn show(app: &mut DrawStepApp, ctx: &egui::Context) {
             ui.add(egui::Slider::new(&mut p.prep.brightness, -60.0..=60.0).text("Brightness"));
             ui.add(egui::Slider::new(&mut p.prep.contrast, -60.0..=80.0).text("Contrast"));
             ui.add_space(6.0);
-            ui.strong("Paper");
-            egui::ComboBox::from_label("Paper size").selected_text(sh.paper.presets.iter().find(|x| x.id == p.prep.paper.preset).map(|x| x.label.clone()).unwrap_or_default()).show_ui(ui, |ui| {
-                for pr in &sh.paper.presets { ui.selectable_value(&mut p.prep.paper.preset, pr.id.clone(), &pr.label); }
+            ui.strong("What will you draw with?");
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut p.prep.medium, "graphite".to_string(), "One pencil");
+                ui.selectable_value(&mut p.prep.medium, "color".to_string(), "Colours");
             });
+            ui.label(RichText::new("Pencil adds pressure and shading guidance; Colours adds a palette and a colouring step.").small().weak());
+            ui.add_space(6.0);
+            ui.strong("Paper");
+            let label = if p.prep.paper.preset == "custom" { "Custom size (cm)".to_string() } else { sh.paper.presets.iter().find(|x| x.id == p.prep.paper.preset).map(|x| format!("{} ({} × {} cm)", x.label, x.width_mm / 10.0, x.height_mm / 10.0)).unwrap_or_default() };
+            egui::ComboBox::from_label("Paper size").selected_text(label).show_ui(ui, |ui| {
+                for pr in &sh.paper.presets { ui.selectable_value(&mut p.prep.paper.preset, pr.id.clone(), format!("{} ({} × {} cm)", pr.label, pr.width_mm / 10.0, pr.height_mm / 10.0)); }
+                ui.selectable_value(&mut p.prep.paper.preset, "custom".to_string(), "Custom size (cm)");
+            });
+            if p.prep.paper.preset == "custom" {
+                ui.horizontal(|ui| {
+                    let mut wcm = p.prep.paper.width_mm / 10.0;
+                    let mut hcm = p.prep.paper.height_mm / 10.0;
+                    ui.label("Width");
+                    if ui.add(egui::DragValue::new(&mut wcm).range(5.0..=200.0).speed(0.1).suffix(" cm")).changed() { p.prep.paper.width_mm = (wcm * 10.0).round(); }
+                    ui.label("Height");
+                    if ui.add(egui::DragValue::new(&mut hcm).range(5.0..=200.0).speed(0.1).suffix(" cm")).changed() { p.prep.paper.height_mm = (hcm * 10.0).round(); }
+                });
+            }
             ui.horizontal(|ui| {
                 for (v, l) in [("auto", "Auto"), ("portrait", "Portrait"), ("landscape", "Landscape")] { ui.selectable_value(&mut p.prep.paper.orientation, v.to_string(), l); }
             });
             ui.add(egui::Slider::new(&mut p.prep.paper.margin_mm, 5.0..=40.0).text("Border (mm)"));
+            ui.add(egui::Slider::new(&mut p.prep.paper.grid_cm, 0.0..=5.0).step_by(0.5).text("Grid squares (cm, 0 = off)"));
+            {
+                let o = &st.oriented.as_ref().unwrap().1;
+                let asp = (o.width as f64 * p.prep.crop.w) / (o.height as f64 * p.prep.crop.h);
+                let l = drawstep_core::steps::paper_layout(&p.prep.paper, &sh.paper.presets, asp, sh.paper.default_margin_mm);
+                let grid = if p.prep.paper.grid_cm > 0.0 { format!(" · grid {} × {} squares", (l.draw_w / (p.prep.paper.grid_cm * 10.0) - 1e-9).ceil(), (l.draw_h / (p.prep.paper.grid_cm * 10.0) - 1e-9).ceil()) } else { String::new() };
+                egui::Frame::new().fill(ui.visuals().faint_bg_color).corner_radius(8.0).inner_margin(8.0).show(ui, |ui| {
+                    ui.label(format!("Paper {:.1} × {:.1} cm ({}) → your drawing: {:.1} × {:.1} cm{grid}", l.paper_w / 10.0, l.paper_h / 10.0, l.orient, l.draw_w / 10.0, l.draw_h / 10.0));
+                });
+            }
             ui.collapsing("Objects and background", |ui| {
                 ui.checkbox(&mut p.prep.simplify_background, "Simplify background (hide busy areas behind the subject)");
                 ui.label(RichText::new("Find the separate objects, then remove the ones you don't want to draw, or keep only one.").small().weak());

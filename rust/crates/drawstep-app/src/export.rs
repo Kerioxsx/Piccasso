@@ -21,7 +21,10 @@ pub fn step_image(app: &DrawStepApp, step_index: usize, max_dim: usize) -> Optio
         Some(b) if step.base != "none" => resize_box(b, w, h),
         _ => Rgba::filled(w, h, 255),
     };
-    if let Some(a) = &sess.project.analysis { raster::draw_layers(&mut img, a, &step.layers); }
+    if let Some(a) = &sess.project.analysis {
+        let grid = a.aspect.is_finite().then(|| crate::ui::grid_for(&sess.project)).flatten();
+        raster::draw_layers_grid(&mut img, a, &step.layers, grid);
+    }
     Some(img)
 }
 

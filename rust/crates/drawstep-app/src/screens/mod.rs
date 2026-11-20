@@ -2,6 +2,7 @@
 use crate::app::{DrawStepApp, Screen};
 use egui::RichText;
 
+pub mod autodraw;
 pub mod compare;
 pub mod home;
 pub mod locked;
@@ -18,6 +19,8 @@ pub struct ScreenState {
     pub compare: compare::CompareState,
     pub home: home::HomeState,
     pub workspace: workspace::WorkspaceState,
+    pub autodraw: autodraw::AutoDrawState,
+    pub phone: crate::bridge::PhoneState,
 }
 impl ScreenState {
     pub fn on_enter(&mut self, s: Screen) {
@@ -55,7 +58,7 @@ fn top_bar(app: &mut DrawStepApp, ctx: &egui::Context) {
 }
 
 pub fn show(app: &mut DrawStepApp, ctx: &egui::Context) {
-    let needs_project = matches!(app.screen, Screen::Prepare | Screen::Processing | Screen::Workspace | Screen::Locked | Screen::Overlay | Screen::Compare);
+    let needs_project = matches!(app.screen, Screen::Prepare | Screen::Processing | Screen::Workspace | Screen::Locked | Screen::Overlay | Screen::Compare | Screen::AutoDraw);
     if needs_project && app.session.is_none() {
         app.screen = Screen::Home;
     }
@@ -73,6 +76,7 @@ pub fn show(app: &mut DrawStepApp, ctx: &egui::Context) {
         Screen::Locked => locked::show(app, ctx),
         Screen::Overlay => overlay::show(app, ctx),
         Screen::Compare => compare::show(app, ctx),
+        Screen::AutoDraw => autodraw::show(app, ctx),
     }
 }
 

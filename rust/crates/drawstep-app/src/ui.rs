@@ -84,6 +84,19 @@ fn dashed(painter: &egui::Painter, pts: &[Pos2], closed: bool, stroke: Stroke, d
 
 /// Paint vector layers of the analysis over `rect` (where the whole image maps).
 pub fn draw_layers(painter: &egui::Painter, a: &Analysis, layers: &[String], rect: Rect, alpha: f32, labels: bool) {
+    draw_layers_ex(painter, a, layers, rect, alpha, labels, None)
+}
+
+/// Grid size (fractions of the drawing) for the `cmgrid` layer, from the project's paper settings.
+pub fn grid_for(p: &drawstep_core::project::Project) -> Option<(f64, f64)> {
+    let a = p.analysis.as_ref()?;
+    if p.prep.paper.grid_cm <= 0.0 { return None; }
+    let sh = drawstep_core::shared::shared();
+    let l = drawstep_core::steps::paper_layout(&p.prep.paper, &sh.paper.presets, a.aspect, sh.paper.default_margin_mm);
+    Some(drawstep_core::steps::grid_fractions(&l, p.prep.paper.grid_cm))
+}
+
+pub fn draw_layers_ex(painter: &egui::Painter, a: &Analysis, layers: &[String], rect: Rect, alpha: f32, labels: bool, grid: Option<(f64, f64)>) {
     let has = |l: &str| layers.iter().any(|x| x == l);
     let lw = (rect.width() / 420.0).max(1.5);
     let c = |col: Color32| col.gamma_multiply(alpha);
@@ -159,6 +172,32 @@ pub fn draw_layers(painter: &egui::Painter, a: &Analysis, layers: &[String], rec
         for l in &a.landmarks {
             let p = map(rect, [l.x, l.y]);
             painter.circle(p, lw * 2.6, c(C_LANDMARK), Stroke::new(lw * 0.8, Color32::WHITE));
+        }
+    }
+    if let (true, Some((fx, fy))) = (has("cmgrid"), grid) {
+        let st = Stroke::new((lw * 0.6).max(1.0), ACCENT.gamma_multiply(0.55 * alpha));
+        let mut x = fx;
+        while fx > 0.0 && x < 1.0 - 1e-6 { painter.line_segment([map(rect, [x, 0.0]), map(rect, [x, 1.0])], st); x += fx; }
+        let mut y = fy;
+        while fy > 0.0 && y < 1.0 - 1e-6 { painter.line_segment([map(rect, [0.0, y]), map(rect, [1.0, y])], st); y += fy; }
+    }
+    if has("pressure") {
+        let mut order: Vec<u32> = a.technique.bands.iter().map(|b| b.band).collect();
+        order.sort_by(|x, y| y.cmp(x));
+        for b in &a.technique.bands {
+            let k = order.iter().position(|&x| x == b.band).unwrap_or(0);
+            let shade = (235.0 - 195.0 * k as f32 / (order.len().max(2) - 1) as f32) as u8;
+            let p = map(rect, [b.x, b.y]);
+            let r = (lw * 6.0).max(11.0);
+            painter.circle(p, r, Color32::from_gray(shade), Stroke::new(lw, Color32::from_rgb(0x24, 0x22, 0x1e)));
+            painter.text(p, egui::Align2::CENTER_CENTER, format!("{}", k + 1), egui::FontId::proportional(r * 1.05), if shade < 128 { Color32::WHITE } else { Color32::from_rgb(0x24, 0x22, 0x1e) });
+        }
+    }
+    if has("palette") {
+        for c in &a.technique.palette {
+            let p = map(rect, [c.x, c.y]);
+            let r = (lw * 5.5).max(10.0);
+            painter.circle(p, r, Color32::from_rgb(c.rgb[0] as u8, c.rgb[1] as u8, c.rgb[2] as u8), Stroke::new(lw * 1.2, Color32::WHITE));
         }
     }
     if has("light") && a.values.light_dir != "even" {
@@ -278,4 +317,37 @@ pub fn primary(ui: &mut egui::Ui, text: &str) -> egui::Response {
 
 pub fn heading(ui: &mut egui::Ui, text: &str) {
     ui.label(egui::RichText::new(text).size(26.0).strong());
+}
+
+/// Draw motion strokes up to `progress` (0..1 of total length) with a pencil tip.
+pub fn draw_motion(painter: &egui::Painter, strokes: &[drawstep_core::motion::Stroke], rect: Rect, progress: f32) {
+    let lw = (rect.width() / 260.0).max(2.0);
+    let p = |q: [f64; 2]| map(rect, q);
+    let lens: Vec<f32> = strokes.iter().map(|s| s.points.windows(2).map(|w| p(w[0]).distance(p(w[1]))).sum::<f32>().max(30.0)).collect();
+    let total: f32 = lens.iter().sum();
+    let mut remaining = progress * total;
+    let mut tip: Option<(Pos2, egui::Vec2)> = None;
+    for (si, s) in strokes.iter().enumerate() {
+        if remaining <= 0.0 { break; }
+        let pts: Vec<Pos2> = s.points.iter().map(|q| p(*q)).collect();
+        painter.circle_filled(pts[0], lw * 2.2, ACCENT);
+        painter.text(pts[0], egui::Align2::CENTER_CENTER, format!("{}", si + 1), egui::FontId::proportional(lw * 2.6), Color32::WHITE);
+        let mut left = remaining.min(lens[si]);
+        remaining -= lens[si];
+        let mut drawn = vec![pts[0]];
+        for w in pts.windows(2) {
+            if left <= 0.0 { break; }
+            let d = w[0].distance(w[1]).max(1e-6);
+            if left >= d { drawn.push(w[1]); left -= d; tip = Some((w[1], w[1] - w[0])); }
+            else { let q = w[0] + (w[1] - w[0]) * (left / d); drawn.push(q); tip = Some((q, w[1] - w[0])); left = 0.0; }
+        }
+        painter.add(Shape::line(drawn, Stroke::new(lw, ACCENT)));
+    }
+    if let Some((t, dir)) = tip {
+        let d = dir.normalized();
+        let n = vec2(-d.y, d.x);
+        let back = -d * lw * 18.0 + vec2(0.0, -lw * 6.0);
+        painter.add(Shape::convex_polygon(vec![t, t + back * 0.25 + n * lw * 2.2, t + back + n * lw * 2.2, t + back - n * lw * 2.2, t + back * 0.25 - n * lw * 2.2], Color32::from_rgb(0xf2, 0xc1, 0x4e), Stroke::new(1.5_f32, Color32::from_rgb(0x24, 0x22, 0x1e))));
+        painter.circle_filled(t, lw * 0.8, Color32::from_rgb(0x24, 0x22, 0x1e));
+    }
 }

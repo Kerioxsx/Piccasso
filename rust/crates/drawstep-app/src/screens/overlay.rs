@@ -39,6 +39,8 @@ pub struct OverlayState {
     status: (String, Color32),
     drag_handle: Option<usize>,
     init: bool,
+    composite: Option<Rgba>,
+    phone_source: bool,
 }
 impl Default for OverlayState {
     fn default() -> Self {
@@ -48,7 +50,7 @@ impl Default for OverlayState {
             feed: None,
             frame_gen: 0, media: None, corners: None, scale: 1.0, rotation: 0.0, offset: [0.0, 0.0], opacity: 0.5,
             layers: ["outline"].into_iter().collect(), composite_key: String::new(), calibrating: false, follow: false, locked: false,
-            last_detect: None, status: ("Starting…".into(), Color32::GRAY), drag_handle: None, init: false,
+            last_detect: None, status: ("Starting…".into(), Color32::GRAY), drag_handle: None, init: false, composite: None, phone_source: false,
         }
     }
 }
@@ -98,6 +100,7 @@ pub fn show(app: &mut DrawStepApp, ctx: &egui::Context) {
     let cap = crate::camera::capability();
     let Some(sess) = app.session.as_mut() else { return };
     let st = &mut app.screen_state.overlay;
+    let ph = &mut app.screen_state.phone;
     let mut exit = false;
     if !st.init {
         st.init = true;
@@ -115,12 +118,22 @@ pub fn show(app: &mut DrawStepApp, ctx: &egui::Context) {
         if let Some(e) = feed.error() { status(st, &format!("Camera error: {e}"), Color32::RED); }
         ctx.request_repaint_after(Duration::from_millis(33));
     }
+    if let Some((g, img)) = ph.frame_after(ph.last_gen) {
+        ph.last_gen = g;
+        #[cfg(feature = "camera")]
+        { st.feed = None; }
+        let _ = app.textures.set(ctx, "overlay-media", &img);
+        st.media = Some(img);
+        st.phone_source = true;
+    }
+    if ph.running() { ctx.request_repaint_after(Duration::from_millis(50)); }
     if st.photo_gen == 1 { if let Some(p) = &st.photo { let _ = app.textures.set(ctx, "overlay-media", p); st.media = Some(p.clone()); } st.photo_gen = 2; }
 
     let key = format!("{:?}|{}|{}", st.layers, sess.renders_hash, sess.project.progress.current_step);
     if st.composite_key != key {
         let c = compose(sess, &st.layers);
         let _ = app.textures.set(ctx, "overlay-guide", &c);
+        st.composite = Some(c);
         st.composite_key = key;
     }
     let layout = paper_layout(&sess.project.prep.paper, &shared().paper.presets, sess.project.analysis.as_ref().map(|a| a.aspect).unwrap_or(1.0), shared().paper.default_margin_mm);
@@ -132,6 +145,10 @@ pub fn show(app: &mut DrawStepApp, ctx: &egui::Context) {
             ui.separator();
             ui.label(RichText::new(&cap.status).small());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.selectable_label(ph.open, "📱 Use my phone").on_hover_text("Use your phone as this computer's camera, or as an AR viewer of the guide").clicked() {
+                    ph.open = !ph.open;
+                    if ph.open && !ph.running() { ph.start(); }
+                }
                 if ui.button("Use a photo of my paper").clicked() {
                     if let Some(path) = rfd::FileDialog::new().add_filter("Images", &["png", "jpg", "jpeg", "webp"]).pick_file() {
                         match std::fs::read(&path).map_err(|e| e.to_string()).and_then(|b| drawstep_core::decode_image_bytes(&b)) {
@@ -183,13 +200,40 @@ pub fn show(app: &mut DrawStepApp, ctx: &egui::Context) {
         ui.collapsing("About the camera overlay", |ui| { ui.label(RichText::new(LIMITS).small()); for r in &cap.reasons { ui.label(RichText::new(r).small().weak()); } });
     });
 
+    if ph.open {
+        let mut open = true;
+        egui::Window::new("Use your phone").open(&mut open).resizable(false).default_width(360.0).anchor(egui::Align2::RIGHT_TOP, vec2(-12.0, 60.0)).show(ctx, |ui| {
+            if let Some(e) = &ph.error { ui.colored_label(Color32::from_rgb(0xb3, 0x26, 0x1e), e); }
+            if let (Some(url), Some(qr)) = (ph.url(), ph.qr()) {
+                ui.label("1. Connect the phone to the same Wi-Fi as this computer.");
+                ui.label("2. Scan this code with the phone's camera:");
+                let tex = app.textures.get(ctx, "phone-qr", &qr);
+                ui.image(egui::load::SizedTexture::new(tex.id(), vec2(220.0, 220.0)));
+                ui.horizontal(|ui| { ui.label(RichText::new(&url).monospace().small()); if ui.small_button("Copy").clicked() { ctx.copy_text(url.clone()); } });
+                ui.label(RichText::new("3. The phone warns about the certificate (it is made by this computer just now). Choose “Advanced → Continue/Visit website”. This keeps the camera link encrypted on your network.").small().weak());
+                ui.label("4. On the phone choose “Be the computer's camera”, or “See the guide here” for an AR view on the phone.");
+                let (frames, viewer) = ph.stats();
+                ui.label(RichText::new(if frames > 0 { format!("Receiving the phone camera ({frames} frames).") } else if viewer { "The phone is showing the guide.".into() } else { "Waiting for the phone…".into() }).strong());
+                if ui.button("Send guide to phone").on_hover_text("Shares the current overlay (layers you chose) with the phone's AR view").clicked() {
+                    if let Some(c) = &st.composite {
+                        if let Ok(png) = drawstep_core::encode_png(c) {
+                            ph.set_overlay(png, format!("{{\"name\":{:?}}}", sess.project.name));
+                            st.status = ("Guide sent to the phone".into(), Color32::from_rgb(0x2e, 0x7d, 0x32));
+                        }
+                    }
+                }
+                if ui.button("Stop sharing").clicked() { ph.stop(); ph.open = false; st.phone_source = false; }
+            }
+        });
+        if !open { ph.open = false; }
+    }
     if st.follow && !st.locked && st.last_detect.map_or(true, |t| t.elapsed() > Duration::from_millis(250)) {
         detect(st, false, app_toast(&mut app.toasts));
     }
     if !st.follow {
         if st.locked { status(st, "Alignment locked", Color32::from_rgb(0x2e, 0x7d, 0x32)); }
         else if st.media.is_none() { status(st, if cap.mode == OverlayMode::Camera { "Waiting for camera…" } else { "AR unavailable: choose a photo of your paper" }, Color32::from_rgb(0xef, 0x6c, 0x00)); }
-        else { status(st, "Manual alignment (no tracking)", Color32::from_rgb(0xef, 0x6c, 0x00)); }
+        else { status(st, if st.phone_source { "Phone camera · manual alignment" } else { "Manual alignment (no tracking)" }, Color32::from_rgb(0xef, 0x6c, 0x00)); }
     }
 
     egui::CentralPanel::default().frame(egui::Frame::new().fill(Color32::BLACK)).show(ctx, |ui| {
