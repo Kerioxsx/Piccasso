@@ -39,7 +39,8 @@
       "checks": [
         "Are the four edge marks about {drawWcm} cm apart side to side and {drawHcm} cm top to bottom?",
         "Is there an even border all around?"
-      ]
+      ],
+      "motion": "Hold the pencil loosely, far from the tip. Make small dots; don't drag the pencil."
     },
     "shapes": {
       "title": "Block in basic shapes",
@@ -48,7 +49,8 @@
       "checks": [
         "Do you have {shapeList}?",
         "Are your lines light enough to erase?"
-      ]
+      ],
+      "motion": "Draw from your shoulder with your whole arm. Go around each oval 2-3 times very lightly, then keep the best line."
     },
     "proportions": {
       "title": "Check proportions",
@@ -57,7 +59,8 @@
       "checks": [
         "Is the whole drawing {aspectPhrase}?",
         "Squint at your paper and the guide. Do the big shapes match?"
-      ]
+      ],
+      "motion": "Keep your arm straight and close one eye when you measure with the pencil, so every measurement is taken the same way."
     },
     "contours": {
       "title": "Draw the main outline",
@@ -66,7 +69,8 @@
       "checks": [
         "Does your outline start near {startPos}?",
         "Does the outline stay close to your basic shapes?"
-      ]
+      ],
+      "motion": "Move from the elbow in short, overlapping strokes. Turn the paper so curves are always comfortable to draw."
     },
     "forms": {
       "title": "Add the big inner shapes",
@@ -74,7 +78,8 @@
       "tip": "Squint at the reference: squinting hides small details and shows the big shapes.",
       "checks": [
         "Did you place the biggest inner shape near {internalPos}?"
-      ]
+      ],
+      "motion": "Use slower wrist movements for medium shapes. Stop and look every few strokes."
     },
     "features": {
       "title": "Refine features",
@@ -83,7 +88,8 @@
       "checks": [
         "Is most of your detail near {detailPos}, like in the guide?",
         "Did you work from big features to small ones?"
-      ]
+      ],
+      "motion": "Rest the side of your hand on a scrap of paper (so you don't smudge) and use small finger movements for details."
     },
     "clean": {
       "title": "Clean up the sketch",
@@ -92,16 +98,18 @@
       "checks": [
         "Are the construction lines gone or very faint?",
         "Are the important outlines a little darker now?"
-      ]
+      ],
+      "motion": "Dab or roll the eraser instead of rubbing hard; rubbing damages the paper."
     },
     "values": {
       "title": "Shadows and values",
-      "instruction": "{lightSentence} The darkest areas are near {darkPos}. Shade the dark shapes first, then the middle tones. Leave the brightest areas as clean paper.",
+      "instruction": "{lightSentence} The darkest areas are near {darkPos}. {shadeMethod} Shade the dark shapes first, then the middle tones. Leave the brightest areas as clean paper.",
       "tip": "Build darkness slowly with light layers instead of pressing hard.",
       "checks": [
         "Are your darkest areas near {darkPos}?",
         "Did you leave the brightest spots as clean paper?"
-      ]
+      ],
+      "motion": "Keep a low pencil angle and follow the curve of each surface with your strokes. Change pressure, not speed."
     },
     "details": {
       "title": "Final details",
@@ -109,7 +117,28 @@
       "tip": "Step back from your drawing every few minutes to see it as a whole.",
       "checks": [
         "Step back: does the drawing read well from a distance?"
-      ]
+      ],
+      "motion": "Use short flicks: press at the start of a line and lift at the end so it tapers."
+    },
+    "pressure": {
+      "title": "Pencil pressure and grades",
+      "instruction": "Before shading, learn how hard to press. This picture needs {bandCount} tones: {pressureList}. Practise each tone in a small square at the edge of your paper first. {highlightTip}",
+      "tip": "Pressure is easier to control than you think: try counting 1-2-3 for light, medium and firm before you start.",
+      "checks": [
+        "Can you make each tone in your practice squares?",
+        "Is your lightest tone barely visible?"
+      ],
+      "motion": "Hold the pencil at a low angle and use the side of the lead. Stroke back and forth in one direction without lifting."
+    },
+    "color": {
+      "title": "Colour it in",
+      "instruction": "This picture uses these main colours: {paletteList}. Start with the lightest colours and keep the pressure light, then add the middle colours and finish with the darkest ones. {colorTip}",
+      "tip": "Layer instead of pressing hard: three light layers look richer than one heavy one.",
+      "checks": [
+        "Did you start with the lightest colours?",
+        "Are the darkest colours only where the picture is darkest?"
+      ],
+      "motion": "Use small overlapping circles or short strokes in one direction with light pressure. Build colour in several thin layers."
     }
   },
   "compareItem": "the {a} {kindA} is {ratio} the {b} {kindB}",
@@ -142,5 +171,24 @@
     "clean": "Erase lines you don't need and make the important outlines a little darker.",
     "values": "Squint at the picture to find the darkest areas. Shade those first, then the middle tones. Leave the brightest parts white.",
     "details": "Add small details and textures last. Stop when you're happy with it."
-  }
+  },
+  "pressureItem": "{label} ({pct}% pressure, {grade} pencil, mostly near {pos})",
+  "pressureLabels": {
+    "lightest": "lightest",
+    "light": "light",
+    "medium": "medium",
+    "firm": "firm",
+    "veryFirm": "very firm"
+  },
+  "highlightTip": "Leave the shiny highlights as untouched white paper.",
+  "shadeMethods": {
+    "very_easy": "Shade with the side of the pencil in small, gentle back-and-forth strokes.",
+    "easy": "Shade with small back-and-forth strokes going the same direction; overlap them so no gaps show.",
+    "intermediate": "Use hatching: parallel lines close together. Put lines closer together to make an area darker.",
+    "detailed": "Use hatching, then crosshatching (a second layer of lines at an angle) for the darkest areas, and blend softly with a tissue or blending stump."
+  },
+  "paletteItem": "{name} ({where})",
+  "colorTip": "With a single colour pencil, use pressure for light and dark instead of switching colours.",
+  "grid": "Optional grid method: draw a very light grid of {gridCm} cm squares, {cols} across and {rows} down, then copy what you see in each square.",
+  "paperCustom": "Custom size"
 }

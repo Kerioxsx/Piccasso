@@ -6,6 +6,8 @@ import { planProject } from '../../core/pipeline.js';
 import { rgbaToCanvas } from '../imageio.js';
 import { renderInBackground } from '../processing.js';
 import { drawLayers } from '../canvas.js';
+import { paperLayout } from '../../core/steps.js';
+import { dialog } from '../dom.js';
 
 const ASPECTS = [['free', 'Free'], ['original', 'Original'], ['1', 'Square'], ['0.75', '3:4'], ['1.333', '4:3'], ['paper', 'Paper']];
 
@@ -164,6 +166,35 @@ export function renderPrepare(main) {
   }
 
   let saveTimer = 0;
+  async function measureTool() {
+    // Calibrate CSS px per mm with a standard ID-1 card (85.60 × 53.98 mm), then show a cm ruler.
+    let pxPerMm = app.settings.pxPerMm || 3.78;
+    const card = h('div.card-outline');
+    const ruler = h('canvas.ruler', { width: 640, height: 60, 'aria-label': 'On-screen ruler in centimetres' });
+    const drawRuler = () => {
+      card.style.width = `${85.6 * pxPerMm}px`; card.style.height = `${53.98 * pxPerMm}px`;
+      const cssW = Math.min(window.innerWidth - 80, 560);
+      ruler.style.width = cssW + 'px'; ruler.style.height = '60px';
+      const dpr = window.devicePixelRatio || 1; ruler.width = cssW * dpr; ruler.height = 60 * dpr;
+      const ctx = ruler.getContext('2d'); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, cssW, 60);
+      ctx.strokeStyle = getComputedStyle(document.body).color; ctx.fillStyle = ctx.strokeStyle; ctx.font = '12px system-ui';
+      for (let mm = 0; mm * pxPerMm <= cssW; mm++) {
+        const x = mm * pxPerMm + 0.5, len = mm % 10 === 0 ? 26 : mm % 5 === 0 ? 18 : 10;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, len); ctx.stroke();
+        if (mm % 10 === 0) ctx.fillText(String(mm / 10), x + 2, 42);
+      }
+    };
+    const body = h('div.stack',
+      h('p', 'Hold a bank card (or any ID-sized card) against the screen and move the slider until the outline matches it exactly. Then use the ruler to measure your paper or check a drawing size.'),
+      card,
+      slider({ label: 'Card size', min: 2, max: 8, step: 0.01, value: pxPerMm, format: (v) => v.toFixed(2) + ' px/mm', onInput: (v) => { pxPerMm = v; drawRuler(); } }),
+      ruler,
+      h('p.small.muted', 'Paper bigger than your screen? Measure along one edge in steps, or use the size printed on the paper pack. Common sizes: A4 21 × 29.7 cm, A5 14.8 × 21 cm, Letter 21.6 × 27.9 cm.'));
+    setTimeout(drawRuler, 30);
+    const ok = await dialog({ title: 'Measure with a card', body, buttons: [{ label: 'Close', value: false }, { label: 'Save calibration', value: true, primary: true }] });
+    if (ok) { app.settings.pxPerMm = pxPerMm; app.saveSettings(); toast('Screen ruler calibrated'); }
+  }
+
   function changed({ thumbs = false } = {}) {
     p.analysis && (p._stale = true);
     clearTimeout(saveTimer);
@@ -231,8 +262,18 @@ export function renderPrepare(main) {
 
   const tabs = segmented('Preview', [['crop', 'Crop & rotate'], ['style', 'Style preview']], tab, setTab);
   const nameInput = h('input', { type: 'text', value: p.name, 'aria-label': 'Project name', on: { change: () => { p.name = nameInput.value.trim() || p.name; changed(); } } });
-  const paperSel = h('select', { 'aria-label': 'Paper size', on: { change: () => { prep.paper.preset = paperSel.value; if (aspectMode === 'paper') applyAspect(); changed(); } } },
-    shared.paper.presets.map((pr) => h('option', { value: pr.id, selected: pr.id === prep.paper.preset }, pr.label)));
+  const paperSel = h('select', { 'aria-label': 'Paper size', on: { change: () => { prep.paper.preset = paperSel.value; customRow.hidden = paperSel.value !== 'custom'; if (aspectMode === 'paper') applyAspect(); updateSize(); changed(); } } },
+    [...shared.paper.presets.map((pr) => h('option', { value: pr.id, selected: pr.id === prep.paper.preset }, `${pr.label} (${pr.widthMm / 10} × ${pr.heightMm / 10} cm)`)),
+      h('option', { value: 'custom', selected: prep.paper.preset === 'custom' }, 'Custom size (cm)')]);
+  const cmInput = (key, label) => h('label.field', label, h('input', { type: 'number', min: 5, max: 200, step: 0.1, inputmode: 'decimal', value: ((prep.paper[key] || 0) / 10) || '',
+    on: { input: (e) => { const v = parseFloat(e.target.value); if (v > 0) { prep.paper[key] = Math.round(v * 10); updateSize(); changed(); } } } }));
+  const customRow = h('div.grid.two', { hidden: prep.paper.preset !== 'custom' }, cmInput('widthMm', 'Paper width (cm)'), cmInput('heightMm', 'Paper height (cm)'));
+  const sizeOut = h('p.size-readout', { 'aria-live': 'polite' });
+  function updateSize() {
+    const L = paperLayout(prep.paper, shared.paper.presets, oriented ? (oriented.width * prep.crop.w) / (oriented.height * prep.crop.h) : 1, shared.paper.defaultMarginMm);
+    const grid = prep.paper.gridCm > 0 ? ` · grid ${Math.ceil(L.drawW / (prep.paper.gridCm * 10) - 1e-9)} × ${Math.ceil(L.drawH / (prep.paper.gridCm * 10) - 1e-9)} squares` : '';
+    sizeOut.textContent = `Paper ${(L.paperW / 10).toFixed(1)} × ${(L.paperH / 10).toFixed(1)} cm (${L.orient}) → your drawing: ${(L.drawW / 10).toFixed(1)} × ${(L.drawH / 10).toFixed(1)} cm${grid}`;
+  }
 
   main.appendChild(h('div.stack',
     h('div.row', h('h1', { style: { margin: 0 } }, 'Prepare your picture'), busy),
@@ -252,9 +293,14 @@ export function renderPrepare(main) {
         h('p.small.muted', 'Easier levels use fewer, bigger shapes and fewer steps.'),
         slider({ label: 'Brightness', min: -60, max: 60, value: prep.brightness, onInput: (v) => { prep.brightness = v; cropCanvas.style.filter = `brightness(${1 + v / 100}) contrast(${1 + prep.contrast / 100})`; changed(); } }),
         slider({ label: 'Contrast', min: -60, max: 80, value: prep.contrast, onInput: (v) => { prep.contrast = v; cropCanvas.style.filter = `brightness(${1 + prep.brightness / 100}) contrast(${1 + v / 100})`; changed(); } }),
-        h('div.stack', h('h3', 'Paper'), h('label.field', 'Paper size', paperSel),
-          segmented('Orientation', [['auto', 'Auto'], ['portrait', 'Portrait'], ['landscape', 'Landscape']], prep.paper.orientation, (v) => { prep.paper.orientation = v; if (aspectMode === 'paper') applyAspect(); changed(); }),
-          slider({ label: 'Border (mm)', min: 5, max: 40, value: prep.paper.marginMm, onInput: (v) => { prep.paper.marginMm = v; changed(); } })),
+        segmented('What will you draw with?', [['graphite', 'One pencil'], ['color', 'Colours']], prep.medium || 'graphite', (v) => { prep.medium = v; changed(); }),
+        h('p.small.muted', 'Pencil adds pressure and shading guidance. Colours adds a palette and a colouring step.'),
+        h('div.stack', h('h3', 'Paper'), h('label.field', 'Paper size', paperSel), customRow,
+          h('button.btn.small', { type: 'button', on: { click: () => measureTool() } }, 'Not sure? Measure with a bank card'),
+          segmented('Orientation', [['auto', 'Auto'], ['portrait', 'Portrait'], ['landscape', 'Landscape']], prep.paper.orientation, (v) => { prep.paper.orientation = v; if (aspectMode === 'paper') applyAspect(); updateSize(); changed(); }),
+          slider({ label: 'Border (mm)', min: 5, max: 40, value: prep.paper.marginMm, onInput: (v) => { prep.paper.marginMm = v; updateSize(); changed(); } }),
+          slider({ label: 'Grid squares (cm, 0 = off)', min: 0, max: 5, step: 0.5, value: prep.paper.gridCm || 0, format: (v) => (v ? v + ' cm' : 'off'), onInput: (v) => { prep.paper.gridCm = v; updateSize(); changed(); } }),
+          sizeOut),
         h('details.adv', h('summary', 'Objects and background'),
           h('div.stack',
             toggle('Simplify background', prep.simplifyBackground, (v) => { prep.simplifyBackground = v; changed(); }, 'Hide busy backgrounds behind the main subject.'),
@@ -270,6 +316,7 @@ export function renderPrepare(main) {
 
   buildOriented();
   renderThumbs();
+  updateSize();
   const ro = new ResizeObserver(placeCropBox);
   ro.observe(previewWrap);
   return () => { ro.disconnect(); clearTimeout(previewTimer); clearTimeout(saveTimer); thumbToken++; app.saveProject().catch(() => {}); };

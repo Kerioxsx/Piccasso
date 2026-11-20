@@ -202,7 +202,7 @@ fn compare_feedback() {
     let sh = shared();
     let mut a = drawstep_core::analysis::Analysis::default();
     a.silhouettes.push(drawstep_core::analysis::Silhouette { object_id: "o".into(), closed: true, points: vec![[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8]] });
-    let layout = paper_layout(&PaperCfg { preset: "square".into(), orientation: "auto".into(), margin_mm: 20.0 }, &sh.paper.presets, 1.0, 15.0);
+    let layout = paper_layout(&PaperCfg { preset: "square".into(), orientation: "auto".into(), margin_mm: 20.0, ..Default::default() }, &sh.paper.presets, 1.0, 15.0);
     let (w, h) = (200, 200);
     let guide = guide_mask(&a, &layout, w, h);
     let draw = |sx: f64| {
@@ -221,4 +221,55 @@ fn compare_feedback() {
 fn iso_dates() {
     assert_eq!(iso_from_unix(0, 0), "1970-01-01T00:00:00.000Z");
     assert_eq!(iso_from_unix(1_795_132_800, 5), "2026-11-20T00:00:00.005Z");
+}
+
+#[test]
+fn technique_and_motion() {
+    use drawstep_core::motion::motion_paths;
+    use drawstep_core::steps::{color_name, grid_fractions, pressure_for};
+    let sh = shared();
+    assert_eq!(color_name([83, 121, 176], &sh.colors.colors), "blue");
+    assert_eq!(color_name([52, 73, 104], &sh.colors.colors), "navy");
+    let p = import_project(DEMO).unwrap();
+    let src = drawstep_core::decode_source(&p.source).unwrap();
+    let mut prep = Prep { medium: "color".into(), ..Default::default() };
+    prep.paper.grid_cm = 2.0;
+    let (a, steps) = plan_project(&src, &prep, sh);
+    assert!(steps.iter().any(|s| s.kind == "pressure"));
+    assert!(steps.iter().find(|s| s.kind == "color").unwrap().instruction.contains("blue"));
+    assert!(steps[0].instruction.contains("12 across and 9 down"));
+    let b = &a.technique.bands;
+    assert_eq!(pressure_for(b, b[0].band, sh).grade, "4B");
+    let l = paper_layout(&PaperCfg { preset: "custom".into(), width_mm: 300.0, height_mm: 200.0, orientation: "landscape".into(), margin_mm: 10.0, grid_cm: 0.0 }, &sh.paper.presets, 1.5, 15.0);
+    assert_eq!((l.paper_w, l.draw_w, l.draw_h), (300.0, 270.0, 180.0));
+    assert!((grid_fractions(&l, 2.0).0 - 20.0 / 270.0).abs() < 1e-12);
+    let shapes = motion_paths(&a, steps.iter().find(|s| s.kind == "shapes").unwrap());
+    assert!(shapes.len() >= 2 && shapes.iter().all(|s| s.kind == "shape"));
+    assert!(motion_paths(&a, steps.iter().find(|s| s.kind == "values").unwrap()).iter().all(|s| s.kind == "hatch"));
+}
+
+#[test]
+fn autodraw_strokes() {
+    use drawstep_core::strokes::*;
+    // An "L" drawn 3 px thick thins to one stroke of roughly the right length.
+    let (w, h) = (40usize, 40usize);
+    let mut img = Rgba::filled(w, h, 255);
+    for y in 5..35 { for x in 9..12 { img.data[(y * w + x) * 4..(y * w + x) * 4 + 3].copy_from_slice(&[0, 0, 0]); } }
+    for x in 9..32 { for y in 32..35 { img.data[(y * w + x) * 4..(y * w + x) * 4 + 3].copy_from_slice(&[0, 0, 0]); } }
+    let paths = strokes_from_lineart(&img, 1.0, 5);
+    assert_eq!(paths.len(), 1, "{paths:?}");
+    let (down, _) = path_stats(&paths, 1.0);
+    assert!((down - 50.0 / 40.0).abs() < 0.15, "length {down}");
+    assert!(paths[0].len() <= 5, "simplified to a few points: {:?}", paths[0]);
+    // ordering reduces travel
+    let scattered = vec![vec![[0.9, 0.9], [0.95, 0.95]], vec![[0.0, 0.0], [0.05, 0.05]], vec![[0.5, 0.5], [0.55, 0.5]]];
+    let (_, before) = path_stats(&scattered, 1.0);
+    let (_, after) = path_stats(&order_paths(scattered, 1.0), 1.0);
+    assert!(after < before);
+    assert_eq!(fit_into([0.0, 0.0, 200.0, 100.0], 1.0), [50.0, 0.0, 100.0, 100.0]);
+    let d = densify(&[[0.0, 0.0], [10.0, 0.0]], 2.0);
+    assert_eq!(d.len(), 6);
+    // demo outline strokes exist
+    let p = import_project(DEMO).unwrap();
+    assert_eq!(strokes_from_analysis(p.analysis.as_ref().unwrap(), false).len(), 2);
 }

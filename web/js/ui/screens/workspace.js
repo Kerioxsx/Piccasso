@@ -6,7 +6,10 @@ import { speak, stopSpeaking, speechSupported } from '../speech.js';
 import { gotoStep, completeStep, restartTutorial } from '../../core/project.js';
 import { runInBackground } from '../processing.js';
 import { exportPNG, exportStepSheet, exportProjectFile } from '../exporter.js';
-import { composeGuide } from '../canvas.js';
+import { composeGuide, drawMotion } from '../canvas.js';
+import { motionPaths, pathLength } from '../../core/motion.js';
+import { paperLayout, gridFractions, colorName, pressureFor } from '../../core/steps.js';
+import { reducedMotion } from '../../state.js';
 
 export function glossaryDialog(termId) {
   const t = app.shared.glossary.terms.find((x) => x.id === termId);
@@ -19,6 +22,12 @@ export async function renderWorkspace(main) {
   main.classList.add('full');
   let view = { zoom: 1, panX: 0, panY: 0 };
   let showGuide = true, split = false, splitX = 0.5, mirror = false, loading = false;
+  let anim = null; // { start, strokes }
+  const gridOpts = () => {
+    if (!p.analysis || !(p.prep.paper && p.prep.paper.gridCm > 0)) return null;
+    const layout = paperLayout(p.prep.paper, app.shared.paper.presets, p.analysis.aspect, app.shared.paper.defaultMarginMm);
+    return gridFractions(layout, p.prep.paper.gridCm);
+  };
 
   const canvas = h('canvas', { role: 'img', 'aria-label': 'Drawing guide for the current step' });
   const splitHandle = h('div.split-handle', { hidden: true, role: 'slider', tabIndex: 0, 'aria-label': 'Compare divider', 'aria-valuemin': 0, 'aria-valuemax': 100 });
@@ -40,6 +49,10 @@ export async function renderWorkspace(main) {
   const instrEl = h('p.instruction');
   const tipEl = h('p.tip');
   const termsEl = h('div.chips');
+  const motionText = h('p.small');
+  const motionBtn = h('button.btn.small', { type: 'button', 'aria-pressed': 'false', on: { click: () => toggleMotion() } }, icon('demo'), h('span', 'Show me the motion'));
+  const motionBox = h('div.motion-box', h('strong', 'Hand movement'), motionText, motionBtn);
+  const techEl = h('div');
   const checksEl = h('ul.checklist');
   const aiEl = h('div');
   const guideBtn = h('button.btn.small', { type: 'button', 'aria-pressed': 'true', on: { click: () => { showGuide = !showGuide; guideBtn.setAttribute('aria-pressed', String(showGuide)); guideBtn.lastChild.textContent = showGuide ? 'Hide guide' : 'Show guide'; draw(); announce(showGuide ? 'Guide shown' : 'Guide hidden, showing your picture'); } } }, icon('eye'), h('span', 'Hide guide'));
@@ -71,7 +84,7 @@ export async function renderWorkspace(main) {
         guideBtn,
         h('button.btn.small', { type: 'button', on: { click: () => next({ skip: true }) } }, icon('skip'), 'Skip'),
         h('button.btn.small', { type: 'button', on: { click: restartMenu } }, icon('restart'), 'Restart')),
-      tipEl, aiEl, termsEl,
+      tipEl, motionBox, techEl, aiEl, termsEl,
       h('details', { open: true }, h('summary', h('strong', 'Check your drawing')), h('p.small.muted', 'Look at your paper and the guide side by side. Tap the mirror button to view the guide flipped; holding your drawing up to a mirror the same way makes mistakes easier to spot.'), checksEl),
       legend,
       h('div.mode-bar',
@@ -123,11 +136,34 @@ export async function renderWorkspace(main) {
       on: { click: () => go(k) } }, String(k + 1))));
     titleEl.textContent = s.title;
     instrEl.textContent = s.instruction;
-    tipEl.textContent = s.tip;
+    tipEl.replaceChildren(h('strong', 'Tip'), document.createTextNode(s.tip));
     aiEl.innerHTML = '';
     if (s.source === 'ai') {
       const t = h('button.btn.small.ghost', { type: 'button', on: { click: () => { const showing = instrEl.dataset.local === '1'; instrEl.textContent = showing ? s.instruction : s.localInstruction; instrEl.dataset.local = showing ? '0' : '1'; t.textContent = showing ? 'Show built-in wording' : 'Show AI wording'; } } }, 'Show built-in wording');
       aiEl.appendChild(h('p.small.muted', 'Wording written by the AI helper. ', t));
+    }
+    motionText.textContent = s.motion || '';
+    motionBox.hidden = !s.motion;
+    stopMotion();
+    techEl.innerHTML = '';
+    const tech = p.analysis && p.analysis.technique;
+    if (tech && s.kind === 'pressure') {
+      const order = tech.bands.slice().sort((a, b) => b.band - a.band);
+      techEl.appendChild(h('ol.legend-list', { 'aria-label': 'Pressure guide' }, order.map((b, k) => {
+        const e = pressureFor(tech.bands, b, app.shared.pressure);
+        const shade = Math.round(235 - (195 * k) / Math.max(1, order.length - 1));
+        return h('li', h('span.swatch', { style: { background: `rgb(${shade},${shade},${shade})` } }, String(k + 1)),
+          h('span', h('strong', app.shared.strings.pressureLabels[e.label] || e.label), ` · about ${e.pct}% pressure · ${e.grade} pencil`),
+          h('span.pressure-bar', { 'aria-hidden': 'true' }, h('i', { style: { width: e.pct + '%' } })));
+      })));
+    }
+    if (tech && s.kind === 'color') {
+      const seen = new Set();
+      techEl.appendChild(h('div.chips', { 'aria-label': 'Colours to use' }, tech.palette.map((c) => {
+        const name = colorName(c.rgb, app.shared.colors.colors);
+        if (seen.has(name)) return null; seen.add(name);
+        return h('span.pill', h('span.swatch.sm', { style: { background: `rgb(${c.rgb.join(',')})` } }), name);
+      })));
     }
     termsEl.innerHTML = '';
     if (s.terms && s.terms.length) {
@@ -145,10 +181,26 @@ export async function renderWorkspace(main) {
     draw();
   }
 
+  function toggleMotion() {
+    if (anim) { stopMotion(); return; }
+    const strokes = motionPaths(p.analysis, step());
+    if (!strokes.length) return;
+    anim = { start: performance.now(), strokes };
+    motionBtn.setAttribute('aria-pressed', 'true'); motionBtn.lastChild.textContent = 'Stop the motion';
+    announce('Showing the hand movement for this step. Numbers mark where each stroke starts.');
+    const loop = () => { if (!anim) return; draw(); if (!reducedMotion()) anim.raf = requestAnimationFrame(loop); };
+    loop();
+  }
+  function stopMotion() {
+    if (anim && anim.raf) cancelAnimationFrame(anim.raf);
+    anim = null;
+    motionBtn.setAttribute('aria-pressed', 'false'); motionBtn.lastChild.textContent = 'Show me the motion';
+  }
+
   function currentComposite() {
     const s = step();
     const base = showGuide ? app.baseCanvas(s.base) : app.baseCanvas('original');
-    return composeGuide(base, p.analysis, showGuide ? s.layers : [], { width: (app.renders.original || app.srcCanvas).width });
+    return composeGuide(base, p.analysis, showGuide ? s.layers : [], { width: (app.renders.original || app.srcCanvas).width, grid: gridOpts() });
   }
 
   function draw() {
@@ -164,7 +216,15 @@ export async function renderWorkspace(main) {
       ctx.fillStyle = '#fff'; ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
       const base = showGuide ? app.baseCanvas(s.base) : ref;
       if (base) { ctx.globalAlpha = (p.view.opacity || 100) / 100; ctx.drawImage(base, rect.x, rect.y, rect.w, rect.h); ctx.globalAlpha = 1; }
-      if (showGuide) drawLayers(ctx, p.analysis, s.layers, rect);
+      if (showGuide) drawLayers(ctx, p.analysis, s.layers, rect, { grid: gridOpts() });
+      if (anim) {
+        const reduced = reducedMotion();
+        const elapsed = (performance.now() - anim.start) / 1000;
+        const total = anim.strokes.reduce((a, st) => a + Math.max(30, pathLength(st.points, rect.w, rect.h)), 0) || 1;
+        const dur = Math.max(2.5, total / Math.max(120, rect.w * 0.45));
+        const cycle = dur + 1.2;
+        drawMotion(ctx, anim.strokes, rect, Math.min(1, (elapsed % cycle) / dur), { reduced });
+      }
     };
     ctx.shadowColor = 'rgba(0,0,0,.15)'; ctx.shadowBlur = 12;
     ctx.fillStyle = '#fff'; ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
@@ -224,7 +284,7 @@ export async function renderWorkspace(main) {
   if (app.settings.autoRead) readAloud();
 
   return () => {
-    detach(); ro.disconnect(); clearInterval(timer); stopSpeaking();
+    detach(); ro.disconnect(); clearInterval(timer); stopSpeaking(); stopMotion();
     document.removeEventListener('keydown', onKey);
     p.progress.timeSpentSec += Math.round((Date.now() - visibleSince) / 1000);
     app.saveProject().catch(() => {});

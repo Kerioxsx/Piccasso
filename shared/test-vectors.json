@@ -822,7 +822,87 @@
     "x": 0.3086,
     "y": 0.522
    }
-  ]
+  ],
+  "technique": {
+   "bands": [
+    {
+     "band": 1,
+     "frac": 0.4034,
+     "x": 0.3021,
+     "y": 0.5139,
+     "pos": "ml"
+    },
+    {
+     "band": 2,
+     "frac": 0.5966,
+     "x": 0.6146,
+     "y": 0.5139,
+     "pos": "mr"
+    }
+   ],
+   "palette": [
+    {
+     "rgb": [
+      70,
+      40,
+      46
+     ],
+     "frac": 0.2152,
+     "x": 0.2188,
+     "y": 0.4306,
+     "pos": "tl",
+     "lum": 49
+    },
+    {
+     "rgb": [
+      74,
+      40,
+      53
+     ],
+     "frac": 0.2078,
+     "x": 0.3021,
+     "y": 0.6528,
+     "pos": "bl",
+     "lum": 51
+    },
+    {
+     "rgb": [
+      90,
+      120,
+      148
+     ],
+     "frac": 0.2005,
+     "x": 0.7188,
+     "y": 0.625,
+     "pos": "br",
+     "lum": 114
+    },
+    {
+     "rgb": [
+      90,
+      120,
+      155
+     ],
+     "frac": 0.1907,
+     "x": 0.7188,
+     "y": 0.4306,
+     "pos": "tr",
+     "lum": 114
+    },
+    {
+     "rgb": [
+      79,
+      40,
+      46
+     ],
+     "frac": 0.1858,
+     "x": 0.3854,
+     "y": 0.4306,
+     "pos": "tc",
+     "lum": 52
+    }
+   ]
+  }
  },
  "steps": [
   {
@@ -835,6 +915,7 @@
     "Are the four edge marks about 24.0 cm apart side to side and 18.0 cm top to bottom?",
     "Is there an even border all around?"
    ],
+   "motion": "Hold the pencil loosely, far from the tip. Make small dots; don't drag the pencil.",
    "base": "none",
    "layers": [
     "frame",
@@ -855,6 +936,7 @@
     "Do you have a large circle near the left side, a large box near the left side and a medium circle near the left side?",
     "Are your lines light enough to erase?"
    ],
+   "motion": "Draw from your shoulder with your whole arm. Go around each oval 2-3 times very lightly, then keep the best line.",
    "base": "light",
    "layers": [
     "frame",
@@ -875,6 +957,7 @@
     "Is the whole drawing about 2.0 times as wide as it is tall?",
     "Squint at your paper and the guide. Do the big shapes match?"
    ],
+   "motion": "Keep your arm straight and close one eye when you measure with the pencil, so every measurement is taken the same way.",
    "base": "light",
    "layers": [
     "frame",
@@ -897,6 +980,7 @@
     "Does your outline start near the top left?",
     "Does the outline stay close to your basic shapes?"
    ],
+   "motion": "Move from the elbow in short, overlapping strokes. Turn the paper so curves are always comfortable to draw.",
    "base": "light",
    "layers": [
     "shapes",
@@ -916,6 +1000,7 @@
    "checks": [
     "Did you place the biggest inner shape near the left side?"
    ],
+   "motion": "Use slower wrist movements for medium shapes. Stop and look every few strokes.",
    "base": "light",
    "layers": [
     "silhouette",
@@ -935,6 +1020,7 @@
     "Is most of your detail near the top left, like in the guide?",
     "Did you work from big features to small ones?"
    ],
+   "motion": "Rest the side of your hand on a scrap of paper (so you don't smudge) and use small finger movements for details.",
    "base": "outline",
    "layers": [
     "silhouette",
@@ -956,6 +1042,7 @@
     "Are the construction lines gone or very faint?",
     "Are the important outlines a little darker now?"
    ],
+   "motion": "Dab or roll the eraser instead of rubbing hard; rubbing damages the paper.",
    "base": "outline",
    "layers": [
     "silhouette",
@@ -966,15 +1053,37 @@
    ]
   },
   {
-   "id": "step-8-values",
+   "id": "step-8-pressure",
+   "kind": "pressure",
+   "title": "Pencil pressure and grades",
+   "instruction": "Before shading, learn how hard to press. This picture needs 2 tones: light (15% pressure, HB pencil, mostly near the right side) and firm (75% pressure, 4B pencil, mostly near the left side). Practise each tone in a small square at the edge of your paper first. Leave the shiny highlights as untouched white paper.",
+   "tip": "Pressure is easier to control than you think: try counting 1-2-3 for light, medium and firm before you start.",
+   "checks": [
+    "Can you make each tone in your practice squares?",
+    "Is your lightest tone barely visible?"
+   ],
+   "motion": "Hold the pencil at a low angle and use the side of the lead. Stroke back and forth in one direction without lifting.",
+   "base": "values",
+   "layers": [
+    "pressure"
+   ],
+   "terms": [
+    "pressure",
+    "grades",
+    "value"
+   ]
+  },
+  {
+   "id": "step-9-values",
    "kind": "values",
    "title": "Shadows and values",
-   "instruction": "The light seems to come from the right side, so the shadows fall on the opposite side. The darkest areas are near the left side. Shade the dark shapes first, then the middle tones. Leave the brightest areas as clean paper.",
+   "instruction": "The light seems to come from the right side, so the shadows fall on the opposite side. The darkest areas are near the left side. Use hatching: parallel lines close together. Put lines closer together to make an area darker. Shade the dark shapes first, then the middle tones. Leave the brightest areas as clean paper.",
    "tip": "Build darkness slowly with light layers instead of pressing hard.",
    "checks": [
     "Are your darkest areas near the left side?",
     "Did you leave the brightest spots as clean paper?"
    ],
+   "motion": "Keep a low pencil angle and follow the curve of each surface with your strokes. Change pressure, not speed.",
    "base": "values",
    "layers": [
     "silhouette",
@@ -983,11 +1092,12 @@
    "terms": [
     "value",
     "shading",
-    "highlight"
+    "highlight",
+    "blending"
    ]
   },
   {
-   "id": "step-9-details",
+   "id": "step-10-details",
    "kind": "details",
    "title": "Final details",
    "instruction": "Add texture, small accents and sharp dark touches where the reference shows them, mostly around the top left. Stop when it looks finished to you; not every detail needs to be drawn.",
@@ -995,6 +1105,7 @@
    "checks": [
     "Step back: does the drawing read well from a distance?"
    ],
+   "motion": "Use short flicks: press at the start of a line and lift at the end so it tapers.",
    "base": "sketch",
    "layers": [],
    "terms": [

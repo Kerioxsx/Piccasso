@@ -2,7 +2,7 @@
 import { app, applySettings } from './state.js';
 import { toast } from './ui/dom.js';
 
-const SHARED_FILES = { difficulty: 'difficulty.json', styles: 'styles.json', paper: 'paper.json', stepKinds: 'step-kinds.json' };
+const SHARED_FILES = { difficulty: 'difficulty.json', styles: 'styles.json', paper: 'paper.json', stepKinds: 'step-kinds.json', pressure: 'pressure.json', colors: 'colors.json' };
 
 async function loadShared(lang) {
   const out = {};

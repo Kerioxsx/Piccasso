@@ -8,6 +8,7 @@ pub mod compare;
 pub mod geometry;
 pub mod imgproc;
 pub mod lock;
+pub mod motion;
 pub mod pipeline;
 pub mod project;
 pub mod raster;
@@ -15,6 +16,7 @@ pub mod render;
 pub mod shared;
 pub mod steps;
 pub mod store;
+pub mod strokes;
 pub use uuid;
 
 use base64::Engine;

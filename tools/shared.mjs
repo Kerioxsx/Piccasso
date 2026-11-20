@@ -6,6 +6,6 @@ const j = (f) => JSON.parse(fs.readFileSync(path.join(ROOT, 'shared', f), 'utf8'
 export function loadShared(lang = 'en') {
   return {
     difficulty: j('difficulty.json'), styles: j('styles.json'), paper: j('paper.json'),
-    stepKinds: j('step-kinds.json'), strings: j(`strings.${lang}.json`), glossary: j(`glossary.${lang}.json`),
+    stepKinds: j('step-kinds.json'), pressure: j('pressure.json'), colors: j('colors.json'), strings: j(`strings.${lang}.json`), glossary: j(`glossary.${lang}.json`),
   };
 }

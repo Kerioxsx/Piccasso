@@ -35,10 +35,14 @@
     "simplifyBackground": false,
     "excludedObjects": [],
     "isolateObject": null,
+    "medium": "graphite",
     "paper": {
       "preset": "a4",
       "orientation": "auto",
-      "marginMm": 15
+      "marginMm": 15,
+      "widthMm": 210,
+      "heightMm": 297,
+      "gridCm": 0
     }
   },
   "analysis": {
@@ -463,7 +467,94 @@
         "x": 0.5846,
         "y": 0.5909
       }
-    ]
+    ],
+    "technique": {
+      "bands": [
+        {
+          "band": 0,
+          "frac": 0.1888,
+          "x": 0.4672,
+          "y": 0.5896,
+          "pos": "mc"
+        },
+        {
+          "band": 1,
+          "frac": 0.7759,
+          "x": 0.5797,
+          "y": 0.5271,
+          "pos": "mc"
+        },
+        {
+          "band": 2,
+          "frac": 0.0353,
+          "x": 0.3297,
+          "y": 0.4396,
+          "pos": "tl"
+        }
+      ],
+      "palette": [
+        {
+          "rgb": [
+            83,
+            121,
+            176
+          ],
+          "frac": 0.2932,
+          "x": 0.6578,
+          "y": 0.5396,
+          "pos": "mr",
+          "lum": 115
+        },
+        {
+          "rgb": [
+            132,
+            154,
+            45
+          ],
+          "frac": 0.2704,
+          "x": 0.3484,
+          "y": 0.5021,
+          "pos": "ml",
+          "lum": 135
+        },
+        {
+          "rgb": [
+            79,
+            87,
+            23
+          ],
+          "frac": 0.1999,
+          "x": 0.3984,
+          "y": 0.5979,
+          "pos": "bl",
+          "lum": 77
+        },
+        {
+          "rgb": [
+            52,
+            73,
+            104
+          ],
+          "frac": 0.1946,
+          "x": 0.7641,
+          "y": 0.5188,
+          "pos": "mr",
+          "lum": 70
+        },
+        {
+          "rgb": [
+            225,
+            221,
+            206
+          ],
+          "frac": 0.0419,
+          "x": 0.5797,
+          "y": 0.4896,
+          "pos": "mc",
+          "lum": 220
+        }
+      ]
+    }
   },
   "steps": [
     {
@@ -476,6 +567,7 @@
         "Are the four edge marks about 24.0 cm apart side to side and 18.0 cm top to bottom?",
         "Is there an even border all around?"
       ],
+      "motion": "Hold the pencil loosely, far from the tip. Make small dots; don't drag the pencil.",
       "base": "none",
       "layers": [
         "frame",
@@ -496,6 +588,7 @@
         "Do you have a large oval near the middle, a large box near the right side and a medium oval near the middle?",
         "Are your lines light enough to erase?"
       ],
+      "motion": "Draw from your shoulder with your whole arm. Go around each oval 2-3 times very lightly, then keep the best line.",
       "base": "light",
       "layers": [
         "frame",
@@ -516,6 +609,7 @@
         "Is the whole drawing about 1.8 times as wide as it is tall?",
         "Squint at your paper and the guide. Do the big shapes match?"
       ],
+      "motion": "Keep your arm straight and close one eye when you measure with the pencil, so every measurement is taken the same way.",
       "base": "light",
       "layers": [
         "frame",
@@ -538,6 +632,7 @@
         "Does your outline start near the top?",
         "Does the outline stay close to your basic shapes?"
       ],
+      "motion": "Move from the elbow in short, overlapping strokes. Turn the paper so curves are always comfortable to draw.",
       "base": "light",
       "layers": [
         "shapes",
@@ -558,6 +653,7 @@
         "Is most of your detail near the top left, like in the guide?",
         "Did you work from big features to small ones?"
       ],
+      "motion": "Rest the side of your hand on a scrap of paper (so you don't smudge) and use small finger movements for details.",
       "base": "outline",
       "layers": [
         "silhouette",
@@ -579,6 +675,7 @@
         "Are the construction lines gone or very faint?",
         "Are the important outlines a little darker now?"
       ],
+      "motion": "Dab or roll the eraser instead of rubbing hard; rubbing damages the paper.",
       "base": "outline",
       "layers": [
         "silhouette",
@@ -589,15 +686,37 @@
       ]
     },
     {
-      "id": "step-7-values",
+      "id": "step-7-pressure",
+      "kind": "pressure",
+      "title": "Pencil pressure and grades",
+      "instruction": "Before shading, learn how hard to press. This picture needs 3 tones: light (15% pressure, HB pencil, mostly near the top left), medium (45% pressure, 2B pencil, mostly near the middle) and firm (75% pressure, 4B pencil, mostly near the middle). Practise each tone in a small square at the edge of your paper first. Leave the shiny highlights as untouched white paper.",
+      "tip": "Pressure is easier to control than you think: try counting 1-2-3 for light, medium and firm before you start.",
+      "checks": [
+        "Can you make each tone in your practice squares?",
+        "Is your lightest tone barely visible?"
+      ],
+      "motion": "Hold the pencil at a low angle and use the side of the lead. Stroke back and forth in one direction without lifting.",
+      "base": "values",
+      "layers": [
+        "pressure"
+      ],
+      "terms": [
+        "pressure",
+        "grades",
+        "value"
+      ]
+    },
+    {
+      "id": "step-8-values",
       "kind": "values",
       "title": "Shadows and values",
-      "instruction": "The light seems to come from the top left, so the shadows fall on the opposite side. The darkest areas are near the middle. Shade the dark shapes first, then the middle tones. Leave the brightest areas as clean paper.",
+      "instruction": "The light seems to come from the top left, so the shadows fall on the opposite side. The darkest areas are near the middle. Shade with small back-and-forth strokes going the same direction; overlap them so no gaps show. Shade the dark shapes first, then the middle tones. Leave the brightest areas as clean paper.",
       "tip": "Build darkness slowly with light layers instead of pressing hard.",
       "checks": [
         "Are your darkest areas near the middle?",
         "Did you leave the brightest spots as clean paper?"
       ],
+      "motion": "Keep a low pencil angle and follow the curve of each surface with your strokes. Change pressure, not speed.",
       "base": "values",
       "layers": [
         "silhouette",
@@ -606,7 +725,8 @@
       "terms": [
         "value",
         "shading",
-        "highlight"
+        "highlight",
+        "blending"
       ]
     }
   ],

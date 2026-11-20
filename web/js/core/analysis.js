@@ -215,6 +215,8 @@ export function analyze(img, level, opts = {}) {
     ? posCode((darkSX / darkN + 0.5) / W, (darkSY / darkN + 0.5) / H, subjBox)
     : 'mc';
 
+  const technique = computeTechnique(img, subj, lv, L, subjCount, subjBox, W, H);
+
   return {
     engine: 'local-v1',
     width: W, height: H, aspect: r4(W / H),
@@ -226,5 +228,72 @@ export function analyze(img, level, opts = {}) {
     values: { levels: L, fractions: counts.map((c) => r4(subjCount ? c / subjCount : 0)), darkPos, lightDir },
     detail: { cells, pos: detailPos, density: r4(subjCount ? edgeCount / (subjW * subjH) : 0) },
     landmarks,
+    technique,
   };
+}
+
+/** Nearest pixel (raster order on ties) with mask[i] to the point (x, y). */
+function nearestIn(pred, W, H, x, y) {
+  let best = -1, bd = Infinity;
+  for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) {
+    const i = yy * W + xx;
+    if (!pred(i)) continue;
+    const d = (xx - x) * (xx - x) + (yy - y) * (yy - y);
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+
+/**
+ * Shading/colour technique data: value bands with label anchors (for pencil
+ * pressure guidance) and a subject colour palette (deterministic k-means, k=5).
+ */
+export function computeTechnique(img, subj, lv, L, subjCount, subjBox, W, H) {
+  const bands = [];
+  for (let b = 0; b < L; b++) {
+    let n = 0, sx = 0, sy = 0;
+    for (let i = 0; i < W * H; i++) if (subj[i] && lv[i] === b) { n++; sx += i % W; sy += Math.floor(i / W); }
+    if (n < 0.01 * subjCount || n === 0) continue;
+    const at = nearestIn((i) => subj[i] && lv[i] === b, W, H, sx / n, sy / n);
+    const ax = at % W, ay = Math.floor(at / W);
+    const cx = r4((ax + 0.5) / W), cy = r4((ay + 0.5) / H);
+    bands.push({ band: b, frac: r4(n / subjCount), x: cx, y: cy, pos: posCode(cx, cy, subjBox) });
+  }
+  // Palette
+  const px = [];
+  for (let i = 0; i < W * H; i++) if (subj[i]) px.push(i);
+  const lum = (i) => 77 * img.data[i * 4] + 150 * img.data[i * 4 + 1] + 29 * img.data[i * 4 + 2];
+  const sorted = px.slice().sort((a, b) => lum(a) - lum(b) || a - b);
+  let centers = [0.1, 0.3, 0.5, 0.7, 0.9].map((q) => {
+    const i = sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
+    return [img.data[i * 4], img.data[i * 4 + 1], img.data[i * 4 + 2]];
+  });
+  const assign = new Uint8Array(W * H);
+  for (let it = 0; it < 8; it++) {
+    const acc = centers.map(() => [0, 0, 0, 0]);
+    for (const i of px) {
+      let best = 0, bd = Infinity;
+      for (let k = 0; k < centers.length; k++) {
+        const c = centers[k];
+        const d = Math.abs(img.data[i * 4] - c[0]) + Math.abs(img.data[i * 4 + 1] - c[1]) + Math.abs(img.data[i * 4 + 2] - c[2]);
+        if (d < bd) { bd = d; best = k; }
+      }
+      assign[i] = best;
+      const a = acc[best]; a[0] += img.data[i * 4]; a[1] += img.data[i * 4 + 1]; a[2] += img.data[i * 4 + 2]; a[3]++;
+    }
+    centers = centers.map((c, k) => (acc[k][3] ? [acc[k][0] / acc[k][3], acc[k][1] / acc[k][3], acc[k][2] / acc[k][3]] : c));
+  }
+  const counts = centers.map(() => [0, 0, 0]);
+  for (const i of px) { const c = counts[assign[i]]; c[0]++; c[1] += i % W; c[2] += Math.floor(i / W); }
+  const palette = [];
+  centers.forEach((c, k) => {
+    const [n, sx, sy] = counts[k];
+    if (!n || n < 0.03 * px.length) return;
+    const at = nearestIn((i) => subj[i] && assign[i] === k, W, H, sx / n, sy / n);
+    const x = r4(((at % W) + 0.5) / W), y = r4((Math.floor(at / W) + 0.5) / H);
+    const rgb = c.map((v) => Math.round(v));
+    palette.push({ rgb, frac: r4(n / px.length), x, y, pos: posCode(x, y, subjBox), lum: (77 * rgb[0] + 150 * rgb[1] + 29 * rgb[2]) >> 8 });
+  });
+  palette.sort((a, b) => b.frac - a.frac || a.lum - b.lum);
+  return { bands, palette };
 }

@@ -1,6 +1,6 @@
 // DrawStep service worker: offline app shell + runtime cache.
 // Projects live in IndexedDB, so they are available offline too.
-const VERSION = 'drawstep-v1';
+const VERSION = 'drawstep-v2';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/state.js', 'js/worker.js',
@@ -10,7 +10,7 @@ const SHELL = [
   'js/ui/processing.js', 'js/ui/ai.js', 'js/ui/exporter.js', 'js/ui/webxr.js',
   'js/ui/screens/home.js', 'js/ui/screens/prepare.js', 'js/ui/screens/process.js', 'js/ui/screens/workspace.js',
   'js/ui/screens/locked.js', 'js/ui/screens/ar.js', 'js/ui/screens/compare.js', 'js/ui/screens/library.js', 'js/ui/screens/settings.js',
-  'shared/difficulty.json', 'shared/styles.json', 'shared/paper.json', 'shared/step-kinds.json', 'shared/strings.en.json', 'shared/glossary.en.json',
+  'shared/difficulty.json', 'shared/styles.json', 'shared/paper.json', 'shared/step-kinds.json', 'shared/pressure.json', 'shared/colors.json', 'shared/strings.en.json', 'shared/glossary.en.json',
   'demo/demo-project.drawstep.json', 'demo/hero.svg',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
 ];

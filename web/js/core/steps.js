@@ -28,7 +28,10 @@ export function aspectPhrase(a, S) {
 
 /** Drawing-area size on paper (cm) for an image of aspect `imgAspect`. */
 export function paperLayout(paperCfg, presets, imgAspect, defaultMargin) {
-  const preset = presets.find((p) => p.id === (paperCfg && paperCfg.preset)) || presets[0];
+  let preset = presets.find((p) => p.id === (paperCfg && paperCfg.preset)) || presets[0];
+  if (paperCfg && paperCfg.preset === 'custom' && paperCfg.widthMm > 0 && paperCfg.heightMm > 0) {
+    preset = { id: 'custom', label: 'Custom', widthMm: Math.min(paperCfg.widthMm, paperCfg.heightMm), heightMm: Math.max(paperCfg.widthMm, paperCfg.heightMm) };
+  }
   const margin = paperCfg && paperCfg.marginMm != null ? paperCfg.marginMm : defaultMargin;
   let orient = paperCfg && paperCfg.orientation;
   if (orient !== 'portrait' && orient !== 'landscape') orient = imgAspect > 1.05 ? 'landscape' : 'portrait';
@@ -80,6 +83,12 @@ export function generateSteps(analysis, prep, shared) {
   if (analysis.internals.length < 2) kinds = kinds.filter((k) => k !== 'forms');
   if (analysis.internals.length === 0 && analysis.detail.density < 0.02) kinds = kinds.filter((k) => k !== 'features');
   if (prep.style === 'contour_only') kinds = kinds.filter((k) => k !== 'values' && k !== 'details');
+  const tech = analysis.technique || { bands: [], palette: [] };
+  if (tech.bands.length < 2 || prep.style === 'contour_only') kinds = kinds.filter((k) => k !== 'pressure');
+  if (prep.medium === 'color' && tech.palette.length && prep.style !== 'contour_only') {
+    const at = kinds.indexOf('values');
+    kinds.splice(at < 0 ? kinds.length : at + 1, 0, 'color');
+  }
   if (prep.style === 'shading_guide' && !kinds.includes('values')) {
     const at = kinds.indexOf('clean');
     kinds.splice(at < 0 ? kinds.length : at + 1, 0, 'values');
@@ -103,6 +112,15 @@ export function generateSteps(analysis, prep, shared) {
     compareList = fill(S.compareSingle, { aspectPhrase: aspectP });
   }
 
+  const pressureList = joinList(tech.bands.slice().sort((a, b) => b.band - a.band).map((b) => {
+    const e = pressureFor(tech.bands, b, shared.pressure);
+    return fill(S.pressureItem, { label: S.pressureLabels[e.label] || e.label, pct: e.pct, grade: e.grade, pos: P(b.pos) });
+  }));
+  const seen = new Set();
+  const paletteList = joinList(tech.palette.map((c) => ({ name: colorName(c.rgb, shared.colors.colors), pos: c.pos }))
+    .filter((c) => (seen.has(c.name) ? false : seen.add(c.name)))
+    .map((c) => fill(S.paletteItem, { name: c.name, where: P(c.pos) })));
+  const gridMm = prep.paper && prep.paper.gridCm > 0 ? prep.paper.gridCm * 10 : 0;
   const sil = analysis.silhouettes[0];
   const topLm = analysis.landmarks.find((l) => l.name === 'top');
   const bigInternal = analysis.internals[0];
@@ -117,6 +135,9 @@ export function generateSteps(analysis, prep, shared) {
     detailPos: P(analysis.detail.pos),
     darkPos: P(analysis.values.darkPos),
     lightSentence: analysis.values.lightDir === 'even' ? S.light.even : fill(S.light.dir, { dir: P(analysis.values.lightDir) }),
+    bandCount: tech.bands.length, pressureList, highlightTip: S.highlightTip,
+    shadeMethod: S.shadeMethods[prep.difficulty] || S.shadeMethods.easy,
+    paletteList, colorTip: S.colorTip,
   };
 
   return kinds.map((kind, i) => {
@@ -125,12 +146,48 @@ export function generateSteps(analysis, prep, shared) {
     let instruction = fill(T.instruction, vars);
     if (kind === 'page' && analysis.lowContrast) instruction += ' ' + S.fallback.lowContrast;
     let layers = def.layers.slice();
+    if (kind === 'page' && gridMm) {
+      instruction += ' ' + fill(S.grid, { gridCm: fmt1(gridMm / 10), cols: Math.ceil(layout.drawW / gridMm - 1e-9), rows: Math.ceil(layout.drawH / gridMm - 1e-9) });
+      layers.push('cmgrid');
+    }
     let base = def.base;
     if (kind === 'contours' && analysis.silhouettes.length === 0) { base = 'outline'; layers = ['shapes']; }
     return {
       id: `step-${i + 1}-${kind}`, kind, title: T.title, instruction, tip: T.tip,
       checks: (T.checks || []).map((c) => fill(c, vars)),
+      motion: T.motion || '',
       base, layers, terms: (shared.glossary.stepTerms[kind] || []).slice(),
     };
   });
+}
+
+/**
+ * Pressure entry for a band, by its rank among the bands present (darkest first),
+ * using the table for that many tones (2 tones: the extremes of the 3-tone table).
+ */
+export function pressureFor(bands, band, pressure) {
+  const order = bands.map((b) => b.band).sort((a, b) => a - b);
+  const n = order.length, rank = order.indexOf(band.band);
+  const table = pressure.byLevels[String(Math.min(5, Math.max(3, n)))];
+  if (n < 3) return rank === 0 ? table[0] : table[table.length - 1];
+  return table[rank];
+}
+
+const chroma = (c) => Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2]);
+
+/** Nearest plain colour name ("redmean" weighted RGB + 2×chroma² difference; first wins on ties). */
+export function colorName(rgb, table) {
+  let best = table[0][0], bd = Infinity;
+  for (const [name, c] of table) {
+    const rm = (rgb[0] + c[0]) / 2, dr = rgb[0] - c[0], dg = rgb[1] - c[1], db = rgb[2] - c[2], dc = chroma(rgb) - chroma(c);
+    const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db + 2 * dc * dc;
+    if (d < bd) { bd = d; best = name; }
+  }
+  return best;
+}
+
+/** Grid cell size as fractions of the drawing (for the `cmgrid` layer). */
+export function gridFractions(layout, gridCm) {
+  const mm = gridCm * 10;
+  return { fx: mm / layout.drawW, fy: mm / layout.drawH };
 }

@@ -1,26 +1,120 @@
 {
   "version": 1,
   "terms": [
-    { "id": "contour", "term": "Contour", "text": "The edge line of a shape: where one thing ends and another begins. The outside contour is also called the silhouette." },
-    { "id": "silhouette", "term": "Silhouette", "text": "The outside shape of something, as if it were filled in solid black." },
-    { "id": "construction", "term": "Construction shapes", "text": "Simple shapes such as circles, ovals and boxes that you draw lightly first, to set size and position before adding details." },
-    { "id": "proportion", "term": "Proportion", "text": "How big parts are compared with each other, for example how wide something is compared with how tall." },
-    { "id": "perspective", "term": "Perspective", "text": "Things farther away look smaller, and parallel lines seem to come together in the distance." },
-    { "id": "value", "term": "Value", "text": "How light or dark an area is, from white paper to the darkest pencil mark. Color doesn't matter for value." },
-    { "id": "shading", "term": "Shading", "text": "Adding values (light and dark) so a flat drawing looks solid and three-dimensional." },
-    { "id": "crosshatching", "term": "Crosshatching", "text": "Shading with sets of crossing parallel lines. More layers of lines make a darker area." },
-    { "id": "highlight", "term": "Highlight", "text": "The brightest spot where light hits a surface directly. Usually left as clean paper." },
-    { "id": "negative_space", "term": "Negative space", "text": "The empty space around and between objects. Drawing these gaps is a great way to check shapes." }
+    {
+      "id": "contour",
+      "term": "Contour",
+      "text": "The edge line of a shape: where one thing ends and another begins. The outside contour is also called the silhouette."
+    },
+    {
+      "id": "silhouette",
+      "term": "Silhouette",
+      "text": "The outside shape of something, as if it were filled in solid black."
+    },
+    {
+      "id": "construction",
+      "term": "Construction shapes",
+      "text": "Simple shapes such as circles, ovals and boxes that you draw lightly first, to set size and position before adding details."
+    },
+    {
+      "id": "proportion",
+      "term": "Proportion",
+      "text": "How big parts are compared with each other, for example how wide something is compared with how tall."
+    },
+    {
+      "id": "perspective",
+      "term": "Perspective",
+      "text": "Things farther away look smaller, and parallel lines seem to come together in the distance."
+    },
+    {
+      "id": "value",
+      "term": "Value",
+      "text": "How light or dark an area is, from white paper to the darkest pencil mark. Color doesn't matter for value."
+    },
+    {
+      "id": "shading",
+      "term": "Shading",
+      "text": "Adding values (light and dark) so a flat drawing looks solid and three-dimensional."
+    },
+    {
+      "id": "crosshatching",
+      "term": "Crosshatching",
+      "text": "Shading with sets of crossing parallel lines. More layers of lines make a darker area."
+    },
+    {
+      "id": "highlight",
+      "term": "Highlight",
+      "text": "The brightest spot where light hits a surface directly. Usually left as clean paper."
+    },
+    {
+      "id": "negative_space",
+      "term": "Negative space",
+      "text": "The empty space around and between objects. Drawing these gaps is a great way to check shapes."
+    },
+    {
+      "id": "pressure",
+      "term": "Pressure",
+      "text": "How hard you press the pencil. Light pressure makes pale marks you can erase; firm pressure makes dark marks."
+    },
+    {
+      "id": "grades",
+      "term": "Pencil grades",
+      "text": "The letters on a pencil. H pencils are hard and light, HB is in the middle, and B pencils (2B, 4B, 6B) are soft and dark."
+    },
+    {
+      "id": "blending",
+      "term": "Blending",
+      "text": "Gently smoothing pencil marks with a tissue, cotton bud or paper stump so the tones flow into each other."
+    },
+    {
+      "id": "layering",
+      "term": "Layering",
+      "text": "Building colour or tone with several light coats instead of one heavy one. It looks richer and is easier to correct."
+    }
   ],
   "stepTerms": {
-    "page": ["proportion"],
-    "shapes": ["construction"],
-    "proportions": ["proportion", "negative_space"],
-    "contours": ["contour", "silhouette"],
-    "forms": ["contour"],
-    "features": ["contour", "perspective"],
-    "clean": ["construction"],
-    "values": ["value", "shading", "highlight"],
-    "details": ["crosshatching", "highlight"]
+    "page": [
+      "proportion"
+    ],
+    "shapes": [
+      "construction"
+    ],
+    "proportions": [
+      "proportion",
+      "negative_space"
+    ],
+    "contours": [
+      "contour",
+      "silhouette"
+    ],
+    "forms": [
+      "contour"
+    ],
+    "features": [
+      "contour",
+      "perspective"
+    ],
+    "clean": [
+      "construction"
+    ],
+    "values": [
+      "value",
+      "shading",
+      "highlight",
+      "blending"
+    ],
+    "details": [
+      "crosshatching",
+      "highlight"
+    ],
+    "pressure": [
+      "pressure",
+      "grades",
+      "value"
+    ],
+    "color": [
+      "layering",
+      "blending"
+    ]
   }
 }

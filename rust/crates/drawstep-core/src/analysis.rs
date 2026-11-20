@@ -91,6 +91,32 @@ pub struct Landmark {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Band {
+    pub band: u32,
+    pub frac: f64,
+    pub x: f64,
+    pub y: f64,
+    pub pos: String,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct PaletteColor {
+    pub rgb: [i64; 3],
+    pub frac: f64,
+    pub x: f64,
+    pub y: f64,
+    pub pos: String,
+    pub lum: i64,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Technique {
+    pub bands: Vec<Band>,
+    pub palette: Vec<PaletteColor>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Analysis {
     pub engine: String,
@@ -108,6 +134,7 @@ pub struct Analysis {
     pub values: Values,
     pub detail: Detail,
     pub landmarks: Vec<Landmark>,
+    pub technique: Technique,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -379,6 +406,7 @@ pub fn analyze(img: &Rgba, level: &Level, opts: &AnalyzeOptions) -> Analysis {
     if dark_n > 0.0 { landmarks.push(lm("darkest", [dark_sx / dark_n, dark_sy / dark_n])); }
     let dark_pos = if dark_n > 0.0 { pos_code((dark_sx / dark_n + 0.5) / wf, (dark_sy / dark_n + 0.5) / hf, subj_box) } else { "mc".into() };
 
+    let technique = compute_technique(img, &subj, &lv, lv_count, subj_count, subj_box, w, h);
     Analysis {
         engine: "local-v1".into(), width: w, height: h, aspect: r4(wf / hf), threshold: t, low_contrast,
         subject: Subject { bbox: subj_box, aspect: r4(subj_w as f64 / subj_h as f64), whole: use_whole, pixel_box: Some([sx0 as i64, sy0 as i64, sx1 as i64 + 1, sy1 as i64 + 1]) },
@@ -388,7 +416,77 @@ pub fn analyze(img: &Rgba, level: &Level, opts: &AnalyzeOptions) -> Analysis {
         values: Values { levels: level.value_levels, fractions: counts.iter().map(|&c| r4(if subj_count > 0 { c as f64 / sc } else { 0.0 })).collect(), dark_pos, light_dir },
         detail: Detail { cells, pos: detail_pos, density: r4(if subj_count > 0 { edge_count as f64 / (subj_w * subj_h) as f64 } else { 0.0 }) },
         landmarks,
+        technique,
     }
+}
+
+fn nearest_in(pred: &dyn Fn(usize) -> bool, w: usize, h: usize, x: f64, y: f64) -> usize {
+    let (mut best, mut bd) = (0usize, f64::INFINITY);
+    for yy in 0..h {
+        for xx in 0..w {
+            let i = yy * w + xx;
+            if !pred(i) { continue; }
+            let d = (xx as f64 - x) * (xx as f64 - x) + (yy as f64 - y) * (yy as f64 - y);
+            if d < bd { bd = d; best = i; }
+        }
+    }
+    best
+}
+
+/// Value bands with label anchors + subject palette (deterministic k-means, k=5).
+#[allow(clippy::too_many_arguments)]
+pub fn compute_technique(img: &Rgba, subj: &[u8], lv: &[u8], l: usize, subj_count: u64, subj_box: [f64; 4], w: usize, h: usize) -> Technique {
+    let (wf, hf) = (w as f64, h as f64);
+    let mut bands = Vec::new();
+    for b in 0..l {
+        let (mut n, mut sx, mut sy) = (0u64, 0f64, 0f64);
+        for i in 0..w * h {
+            if subj[i] != 0 && lv[i] as usize == b { n += 1; sx += (i % w) as f64; sy += (i / w) as f64; }
+        }
+        if (n as f64) < 0.01 * subj_count as f64 || n == 0 { continue; }
+        let at = nearest_in(&|i| subj[i] != 0 && lv[i] as usize == b, w, h, sx / n as f64, sy / n as f64);
+        let (cx, cy) = (r4(((at % w) as f64 + 0.5) / wf), r4(((at / w) as f64 + 0.5) / hf));
+        bands.push(Band { band: b as u32, frac: r4(n as f64 / subj_count as f64), x: cx, y: cy, pos: pos_code(cx, cy, subj_box) });
+    }
+    let px: Vec<usize> = (0..w * h).filter(|&i| subj[i] != 0).collect();
+    let d = &img.data;
+    let lum = |i: usize| 77 * d[i * 4] as i64 + 150 * d[i * 4 + 1] as i64 + 29 * d[i * 4 + 2] as i64;
+    let mut sorted = px.clone();
+    sorted.sort_by(|a, b| lum(*a).cmp(&lum(*b)).then(a.cmp(b)));
+    let mut centers: Vec<[f64; 3]> = [0.1, 0.3, 0.5, 0.7, 0.9].iter().map(|q| {
+        let i = sorted[((q * sorted.len() as f64).floor() as usize).min(sorted.len() - 1)];
+        [d[i * 4] as f64, d[i * 4 + 1] as f64, d[i * 4 + 2] as f64]
+    }).collect();
+    let mut assign = vec![0u8; w * h];
+    for _ in 0..8 {
+        let mut acc = vec![[0f64; 4]; centers.len()];
+        for &i in &px {
+            let (mut best, mut bd) = (0usize, f64::INFINITY);
+            for (k, c) in centers.iter().enumerate() {
+                let dd = (d[i * 4] as f64 - c[0]).abs() + (d[i * 4 + 1] as f64 - c[1]).abs() + (d[i * 4 + 2] as f64 - c[2]).abs();
+                if dd < bd { bd = dd; best = k; }
+            }
+            assign[i] = best as u8;
+            let a = &mut acc[best];
+            a[0] += d[i * 4] as f64; a[1] += d[i * 4 + 1] as f64; a[2] += d[i * 4 + 2] as f64; a[3] += 1.0;
+        }
+        for (k, c) in centers.iter_mut().enumerate() {
+            if acc[k][3] != 0.0 { *c = [acc[k][0] / acc[k][3], acc[k][1] / acc[k][3], acc[k][2] / acc[k][3]]; }
+        }
+    }
+    let mut counts = vec![[0f64; 3]; centers.len()];
+    for &i in &px { let c = &mut counts[assign[i] as usize]; c[0] += 1.0; c[1] += (i % w) as f64; c[2] += (i / w) as f64; }
+    let mut palette = Vec::new();
+    for (k, c) in centers.iter().enumerate() {
+        let [n, sx, sy] = counts[k];
+        if n == 0.0 || n < 0.03 * px.len() as f64 { continue; }
+        let at = nearest_in(&|i| subj[i] != 0 && assign[i] as usize == k, w, h, sx / n, sy / n);
+        let (x, y) = (r4(((at % w) as f64 + 0.5) / wf), r4(((at / w) as f64 + 0.5) / hf));
+        let rgb = c.map(|v| js_round(v) as i64);
+        palette.push(PaletteColor { rgb, frac: r4(n / px.len() as f64), x, y, pos: pos_code(x, y, subj_box), lum: (77 * rgb[0] + 150 * rgb[1] + 29 * rgb[2]) >> 8 });
+    }
+    palette.sort_by(|a, b| b.frac.partial_cmp(&a.frac).unwrap().then(a.lum.cmp(&b.lum)));
+    Technique { bands, palette }
 }
 
 fn raw_f(p: &[[i64; 2]]) -> Vec<[f64; 2]> {

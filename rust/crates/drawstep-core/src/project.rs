@@ -17,10 +17,15 @@ pub struct PaperCfg {
     pub preset: String,
     pub orientation: String,
     pub margin_mm: f64,
+    /// Used when preset == "custom".
+    pub width_mm: f64,
+    pub height_mm: f64,
+    /// Grid-method square size in cm (0 = off).
+    pub grid_cm: f64,
 }
 impl Default for PaperCfg {
     fn default() -> Self {
-        PaperCfg { preset: "a4".into(), orientation: "auto".into(), margin_mm: 15.0 }
+        PaperCfg { preset: "a4".into(), orientation: "auto".into(), margin_mm: 15.0, width_mm: 210.0, height_mm: 297.0, grid_cm: 0.0 }
     }
 }
 
@@ -41,6 +46,8 @@ pub struct Prep {
     pub simplify_background: bool,
     pub excluded_objects: Vec<String>,
     pub isolate_object: Option<String>,
+    /// "graphite" (one pencil) or "color".
+    pub medium: String,
     pub paper: PaperCfg,
 }
 impl Default for Prep {
@@ -48,7 +55,7 @@ impl Default for Prep {
         Prep {
             crop: CropRect::default(), rotation: 0, flip_h: false, flip_v: false, brightness: 0.0, contrast: 0.0,
             style: "pencil_sketch".into(), difficulty: "easy".into(), line_thickness: 2.0, sketch_contrast: 20.0, opacity: 100.0,
-            simplify_background: false, excluded_objects: vec![], isolate_object: None, paper: PaperCfg::default(),
+            simplify_background: false, excluded_objects: vec![], isolate_object: None, medium: "graphite".into(), paper: PaperCfg::default(),
         }
     }
 }
@@ -81,6 +88,7 @@ pub struct Step {
     pub base: String,
     pub layers: Vec<String>,
     pub terms: Vec<String>,
+    pub motion: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

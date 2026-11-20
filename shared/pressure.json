@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "note": "Pencil pressure guidance per number of value bands. Index 0 = darkest band.",
+  "byLevels": {
+    "3": [ { "label": "firm", "pct": 75, "grade": "4B" }, { "label": "medium", "pct": 45, "grade": "2B" }, { "label": "light", "pct": 15, "grade": "HB" } ],
+    "4": [ { "label": "veryFirm", "pct": 85, "grade": "6B" }, { "label": "firm", "pct": 65, "grade": "4B" }, { "label": "medium", "pct": 40, "grade": "2B" }, { "label": "light", "pct": 15, "grade": "HB" } ],
+    "5": [ { "label": "veryFirm", "pct": 90, "grade": "6B" }, { "label": "firm", "pct": 70, "grade": "4B" }, { "label": "medium", "pct": 50, "grade": "2B" }, { "label": "light", "pct": 30, "grade": "HB" }, { "label": "lightest", "pct": 10, "grade": "H" } ]
+  }
+}

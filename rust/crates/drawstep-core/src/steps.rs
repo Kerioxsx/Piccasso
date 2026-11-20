@@ -73,7 +73,12 @@ pub struct PaperLayout {
 }
 
 pub fn paper_layout(cfg: &PaperCfg, presets: &[PaperPreset], img_aspect: f64, default_margin: f64) -> PaperLayout {
-    let preset = presets.iter().find(|p| p.id == cfg.preset).unwrap_or(&presets[0]);
+    let custom;
+    let mut preset = presets.iter().find(|p| p.id == cfg.preset).unwrap_or(&presets[0]);
+    if cfg.preset == "custom" && cfg.width_mm > 0.0 && cfg.height_mm > 0.0 {
+        custom = PaperPreset { id: "custom".into(), label: "Custom".into(), width_mm: cfg.width_mm.min(cfg.height_mm), height_mm: cfg.width_mm.max(cfg.height_mm) };
+        preset = &custom;
+    }
     let margin = if cfg.margin_mm.is_finite() { cfg.margin_mm } else { default_margin };
     let orient = if cfg.orientation == "portrait" || cfg.orientation == "landscape" {
         cfg.orientation.clone()
@@ -141,6 +146,14 @@ pub fn generate_steps(a: &Analysis, prep: &Prep, sh: &Shared) -> Vec<Step> {
     if prep.style == "contour_only" {
         kinds.retain(|k| k != "values" && k != "details");
     }
+    let tech = &a.technique;
+    if tech.bands.len() < 2 || prep.style == "contour_only" {
+        kinds.retain(|k| k != "pressure");
+    }
+    if prep.medium == "color" && !tech.palette.is_empty() && prep.style != "contour_only" {
+        let at = kinds.iter().position(|k| k == "values").map(|i| i + 1).unwrap_or(kinds.len());
+        kinds.insert(at, "color".into());
+    }
     if prep.style == "shading_guide" && !kinds.iter().any(|k| k == "values") {
         let at = kinds.iter().position(|k| k == "clean").map(|i| i + 1).unwrap_or(kinds.len());
         kinds.insert(at, "values".into());
@@ -162,6 +175,22 @@ pub fn generate_steps(a: &Analysis, prep: &Prep, sh: &Shared) -> Vec<Step> {
     } else {
         fill(&s.compare_single, &vars([("aspectPhrase", aspect_p.clone())]))
     };
+    let mut sorted_bands = tech.bands.clone();
+    sorted_bands.sort_by(|x, y| y.band.cmp(&x.band));
+    let pressure_list = join_list(&sorted_bands.iter().map(|b| {
+        let e = pressure_for(&tech.bands, b.band, sh);
+        fill(&s.pressure_item, &vars([("label", s.pressure_labels.get(&e.label).cloned().unwrap_or(e.label.clone())), ("pct", format!("{}", e.pct)), ("grade", e.grade.clone()), ("pos", p(&b.pos))]))
+    }).collect::<Vec<_>>());
+    let mut seen: Vec<String> = Vec::new();
+    let mut pal_items = Vec::new();
+    for c in &tech.palette {
+        let name = color_name(c.rgb, &sh.colors.colors);
+        if seen.contains(&name) { continue; }
+        seen.push(name.clone());
+        pal_items.push(fill(&s.palette_item, &vars([("name", name), ("where", p(&c.pos))])));
+    }
+    let palette_list = join_list(&pal_items);
+    let grid_mm = if prep.paper.grid_cm > 0.0 { prep.paper.grid_cm * 10.0 } else { 0.0 };
     let top = a.landmarks.iter().find(|l| l.name == "top");
     let big = a.internals.first();
     let v: HashMap<&str, String> = vars([
@@ -179,6 +208,12 @@ pub fn generate_steps(a: &Analysis, prep: &Prep, sh: &Shared) -> Vec<Step> {
         ("detailPos", p(&a.detail.pos)),
         ("darkPos", p(&a.values.dark_pos)),
         ("lightSentence", if a.values.light_dir == "even" { s.light.even.clone() } else { fill(&s.light.dir, &vars([("dir", p(&a.values.light_dir))])) }),
+        ("bandCount", format!("{}", tech.bands.len())),
+        ("pressureList", pressure_list),
+        ("highlightTip", s.highlight_tip.clone()),
+        ("shadeMethod", s.shade_methods.get(&prep.difficulty).or_else(|| s.shade_methods.get("easy")).cloned().unwrap_or_default()),
+        ("paletteList", palette_list),
+        ("colorTip", s.color_tip.clone()),
     ]);
     kinds.iter().enumerate().map(|(i, kind)| {
         let t = &s.steps[kind];
@@ -189,15 +224,58 @@ pub fn generate_steps(a: &Analysis, prep: &Prep, sh: &Shared) -> Vec<Step> {
             instruction.push_str(&s.fallback.low_contrast);
         }
         let (mut base, mut layers) = def.map(|d| (d.base.clone(), d.layers.clone())).unwrap_or(("light".into(), vec![]));
+        if kind == "page" && grid_mm > 0.0 {
+            let cols = (layout.draw_w / grid_mm - 1e-9).ceil() as i64;
+            let rows = (layout.draw_h / grid_mm - 1e-9).ceil() as i64;
+            instruction.push(' ');
+            instruction.push_str(&fill(&s.grid, &vars([("gridCm", fmt1(grid_mm / 10.0)), ("cols", cols.to_string()), ("rows", rows.to_string())])));
+            layers.push("cmgrid".into());
+        }
         if kind == "contours" && a.silhouettes.is_empty() {
             base = "outline".into();
             layers = vec!["shapes".into()];
         }
         Step {
             id: format!("step-{}-{}", i + 1, kind), kind: kind.clone(), title: t.title.clone(), instruction, tip: t.tip.clone(),
-            checks: t.checks.iter().map(|c| fill(c, &v)).collect(), base, layers,
+            checks: t.checks.iter().map(|c| fill(c, &v)).collect(), motion: t.motion.clone(), base, layers,
             terms: sh.glossary.step_terms.get(kind).cloned().unwrap_or_default(),
             ..Default::default()
         }
     }).collect()
+}
+
+/// Pressure entry for a band by its rank among present bands (darkest first).
+pub fn pressure_for(bands: &[crate::analysis::Band], band: u32, sh: &Shared) -> crate::shared::PressureEntry {
+    let mut order: Vec<u32> = bands.iter().map(|b| b.band).collect();
+    order.sort();
+    let n = order.len();
+    let rank = order.iter().position(|&b| b == band).unwrap_or(0);
+    let table = &sh.pressure.by_levels[&n.clamp(3, 5).to_string()];
+    if n < 3 {
+        return if rank == 0 { table[0].clone() } else { table[table.len() - 1].clone() };
+    }
+    table[rank].clone()
+}
+
+fn chroma(c: [f64; 3]) -> f64 {
+    c[0].max(c[1]).max(c[2]) - c[0].min(c[1]).min(c[2])
+}
+
+/// Nearest plain colour name ("redmean" weighted RGB + 2×chroma² difference).
+pub fn color_name(rgb: [i64; 3], table: &[(String, [i32; 3])]) -> String {
+    let r = [rgb[0] as f64, rgb[1] as f64, rgb[2] as f64];
+    let (mut best, mut bd) = (table[0].0.clone(), f64::INFINITY);
+    for (name, c) in table {
+        let c = [c[0] as f64, c[1] as f64, c[2] as f64];
+        let rm = (r[0] + c[0]) / 2.0;
+        let (dr, dg, db, dc) = (r[0] - c[0], r[1] - c[1], r[2] - c[2], chroma(r) - chroma(c));
+        let d = (2.0 + rm / 256.0) * dr * dr + 4.0 * dg * dg + (2.0 + (255.0 - rm) / 256.0) * db * db + 2.0 * dc * dc;
+        if d < bd { bd = d; best = name.clone(); }
+    }
+    best
+}
+
+/// Grid cell size as fractions of the drawing.
+pub fn grid_fractions(l: &PaperLayout, grid_cm: f64) -> (f64, f64) {
+    (grid_cm * 10.0 / l.draw_w, grid_cm * 10.0 / l.draw_h)
 }

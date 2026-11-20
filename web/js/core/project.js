@@ -5,6 +5,7 @@
 export const FORMAT = 'drawstep-project';
 export const VERSION = 1;
 export const STYLES = ['original', 'clean_outline', 'simplified_outline', 'pencil_sketch', 'light_sketch', 'contour_only', 'shading_guide', 'basic_shapes'];
+export const MEDIUMS = ['graphite', 'color'];
 export const DIFFICULTIES = ['very_easy', 'easy', 'intermediate', 'detailed'];
 
 export function uuid() {
@@ -22,7 +23,8 @@ export function defaultPrep() {
     style: 'pencil_sketch', difficulty: 'easy',
     lineThickness: 2, sketchContrast: 20, opacity: 100,
     simplifyBackground: false, excludedObjects: [], isolateObject: null,
-    paper: { preset: 'a4', orientation: 'auto', marginMm: 15 },
+    medium: 'graphite',
+    paper: { preset: 'a4', orientation: 'auto', marginMm: 15, widthMm: 210, heightMm: 297, gridCm: 0 },
   };
 }
 export const defaultProgress = () => ({ currentStep: 0, completed: [], skipped: [], timeSpentSec: 0 });

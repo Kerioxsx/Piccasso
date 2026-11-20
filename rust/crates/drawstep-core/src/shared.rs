@@ -71,6 +71,24 @@ pub struct StepText {
     pub tip: String,
     #[serde(default)]
     pub checks: Vec<String>,
+    #[serde(default)]
+    pub motion: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PressureEntry {
+    pub label: String,
+    pub pct: u32,
+    pub grade: String,
+}
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Pressure {
+    pub by_levels: HashMap<String, Vec<PressureEntry>>,
+}
+#[derive(Debug, Clone, Deserialize)]
+pub struct Colors {
+    pub colors: Vec<(String, [i32; 3])>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -128,6 +146,13 @@ pub struct Strings {
     pub shape_phrase: String,
     #[serde(default)]
     pub manual_steps: HashMap<String, String>,
+    pub pressure_item: String,
+    pub pressure_labels: HashMap<String, String>,
+    pub highlight_tip: String,
+    pub shade_methods: HashMap<String, String>,
+    pub palette_item: String,
+    pub color_tip: String,
+    pub grid: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -151,6 +176,8 @@ pub struct Shared {
     pub step_kinds: StepKinds,
     pub strings: Strings,
     pub glossary: Glossary,
+    pub pressure: Pressure,
+    pub colors: Colors,
 }
 
 pub const DIFFICULTY_ORDER: [&str; 4] = ["very_easy", "easy", "intermediate", "detailed"];
@@ -175,5 +202,7 @@ pub fn shared() -> &'static Shared {
         step_kinds: serde_json::from_str(include_str!("../../../../shared/step-kinds.json")).expect("step-kinds.json"),
         strings: serde_json::from_str(include_str!("../../../../shared/strings.en.json")).expect("strings.en.json"),
         glossary: serde_json::from_str(include_str!("../../../../shared/glossary.en.json")).expect("glossary.en.json"),
+        pressure: serde_json::from_str(include_str!("../../../../shared/pressure.json")).expect("pressure.json"),
+        colors: serde_json::from_str(include_str!("../../../../shared/colors.json")).expect("colors.json"),
     })
 }
