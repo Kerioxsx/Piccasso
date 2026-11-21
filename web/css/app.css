@@ -258,3 +258,12 @@ input, textarea { caret-color: var(--accent); }
 a { text-underline-offset: 3px; }
 .tip::before { content: none; }
 .tip strong { margin-right: 4px; }
+
+/* Studio */
+.studio { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 16px; align-items: start; }
+.studio-side { position: sticky; top: 12px; }
+.studio-stage { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px; display: grid; place-items: center; min-height: 300px; }
+.studio-canvas { max-width: 100%; max-height: calc(100vh - 140px); height: auto; touch-action: none; image-rendering: auto; }
+.studio-sel { position: absolute; border: 2px dashed var(--accent); pointer-events: none; }
+@media (max-width: 760px) { .studio { grid-template-columns: 1fr; } .studio-side { position: static; } .studio-stage { order: -1; } }
+@media print { .studio-side, header, nav { display: none !important; } .studio { display: block; } .studio-stage { border: 0; } .studio-canvas { max-height: none; width: 100%; } }
