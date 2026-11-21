@@ -5,7 +5,7 @@ import { sourceToRGBA, rgbaToCanvas } from './ui/imageio.js';
 
 const SETTINGS_KEY = 'piccasso.settings.v1';
 export const DEFAULT_SETTINGS = {
-  theme: 'system', textScale: 1, motion: 'system', autoRead: false,
+  theme: 'system', textScale: 1, uiScale: 1, accent: 'theme', motion: 'system', autoRead: false,
   holdToUnlock: true, holdMs: 1200, keepAwake: true, lockTimer: true,
   arOpacity: 0.5, arDefaultLayer: 'outline',
   onboarded: false, lang: 'en',
@@ -150,6 +150,19 @@ export function applySettings(s) {
   if (s.theme === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', s.theme);
   if (s.motion === 'system') root.removeAttribute('data-motion'); else root.setAttribute('data-motion', s.motion);
   root.style.setProperty('--text-scale', String(s.textScale));
+  root.style.setProperty('--ui-scale', String(s.uiScale || 1));
+  // accent colour: the theme's own, a preset or any colour the user picks
+  const accent = ACCENTS[s.accent] || (/^#[0-9a-f]{6}$/i.test(s.accent || '') ? s.accent : null);
+  if (accent) {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(accent.slice(i, i + 2), 16));
+    const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--accent-ink', lum > 0.55 ? '#1b1b1b' : '#ffffff');
+    root.style.setProperty('--accent-soft', `color-mix(in srgb, ${accent} 22%, var(--card))`);
+  } else for (const v of ['--accent', '--accent-ink', '--accent-soft']) root.style.removeProperty(v);
 }
+
+/** Accent presets (the theme's own accent is used for 'theme'). */
+export const ACCENTS = { teal: '#2f7466', blue: '#2f5fa8', purple: '#6f4aa8', rose: '#b0446b', amber: '#b07418', graphite: '#4d5560' };
 
 export const reducedMotion = () => app.settings.motion === 'reduce' || (app.settings.motion === 'system' && matchMedia('(prefers-reduced-motion: reduce)').matches);
