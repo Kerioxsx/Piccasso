@@ -34,7 +34,7 @@ Legend: ✅ done · 🟡 partly done · ⬜ to build. "Web" = installable web ap
 | Custom cropping | ✅ | Prepare |
 | Resolution enhancement (interpolation) | ✅ | Studio → Save 2× (bicubic) |
 | Basic shape conversion, portrait construction, perspective line extraction | 🟡 | Shapes step exists; dedicated conversions planned |
-| Studio in the desktop app | ⬜ | planned (core filters to port to Rust) |
+| Studio in the desktop app | ✅ | Rust port (`piccasso-core/src/filters.rs`), same conversions |
 
 ## 3. AR camera drawing
 | Feature | Status |
@@ -104,4 +104,4 @@ Privacy: local-first, no account, no data collection, camera permission explaine
 4. ~~Skill tree, lessons and exercises~~ (done: Learn → Skill tree).
 5. ~~Analysis tools~~ (done: Analyze).
 6. ~~Workspace themes and library organisation~~ (done; version history still open).
-7. Desktop ports of the Studio and the new web modules.
+7. Desktop ports: Studio and Guides ✅; Practice, 3D sandbox, Skill tree and Analyze next.

@@ -5,7 +5,9 @@
 pub mod analysis;
 pub mod capabilities;
 pub mod compare;
+pub mod filters;
 pub mod geometry;
+pub mod guides;
 pub mod imgproc;
 pub mod lines;
 pub mod penpath;
