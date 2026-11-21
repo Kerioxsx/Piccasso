@@ -66,7 +66,7 @@ Legend: ✅ done · 🟡 partly done · ⬜ to build. "Web" = installable web ap
 | Histogram, brightness distribution, contrast analysis, symmetry, grid comparison, manual measurements and annotations, colour sampling | ⬜ |
 
 ## 7. 3D construction sandbox
-⬜ All items (cube, sphere, cylinder, cone, pyramid, combinations, rotation/scale/position, perspective/orthographic camera, vanishing points, lights and shadows, wireframe/solid/silhouette, saved scenes, screenshots).
+✅ **3D** screen: cube, sphere, cylinder, cone, pyramid; any combination; move, turn, tilt and scale each shape; orbit camera (drag), zoom (wheel/pinch); perspective with adjustable lens or orthographic; vanishing points and horizon of the selected shape; movable light with flat shading and ground shadows; solid, wireframe and silhouette views; construction lines (each shape's axes); ground grid; scenes saved on the device; PNG screenshots. Rendering is plain canvas geometry (no WebGL needed).
 
 ## 8. Personal library
 | Feature | Status |
@@ -94,7 +94,7 @@ Privacy: local-first, no account, no data collection, camera permission explaine
 ## Build order (next)
 1. ~~Perspective and proportion guide overlays; line-weight chart~~ (done: Guides).
 2. ~~Gesture and timed practice~~ (done: Practice).
-3. 3D construction sandbox (§7).
+3. ~~3D construction sandbox~~ (done: 3D).
 4. Skill tree, lessons and exercises (§5).
 5. Analysis tools: histogram, symmetry, measurements (§6).
 6. Workspace themes (paper, graphite, accent colours), library folders/tags/version history.
