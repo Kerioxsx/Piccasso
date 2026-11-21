@@ -74,6 +74,8 @@ pub struct PiccassoApp {
     pub started: Instant,
     pub screen_state: crate::screens::ScreenState,
     pub confirm: Option<crate::ui::Confirm>,
+    pub updater: crate::updater::Updater,
+    pub update_dismissed: bool,
 }
 
 impl PiccassoApp {
@@ -92,8 +94,10 @@ impl PiccassoApp {
             prev_screen: Screen::Home,
             store, store_error, data_dir, settings, session: None, textures: Textures::default(), job: None,
             toasts: vec![], view: View::default(), started: Instant::now(), screen_state: Default::default(), confirm: None,
+            updater: Default::default(), update_dismissed: false,
         };
         app.apply_settings(&cc.egui_ctx);
+        if app.settings.check_updates && std::env::var_os("PICCASSO_NO_UPDATE_CHECK").is_none() { app.updater.start_check(); }
         // Developer convenience: PICCASSO_START=<screen> opens the demo on that screen.
         if let Ok(start) = std::env::var("PICCASSO_START") {
             crate::screens::home::load_demo(&mut app);
@@ -241,7 +245,6 @@ impl PiccassoApp {
         self.job = None;
         match msg {
             JobMsg::Done(r) => {
-                let ai_on = self.settings.ai_enabled;
                 if let Some(sess) = self.session.as_mut() {
                     let r = *r;
                     if !renders_only {
@@ -259,9 +262,6 @@ impl PiccassoApp {
                 }
                 self.textures.clear();
                 self.write_render_cache();
-                if !renders_only && ai_on {
-                    crate::ai::maybe_rewrite(self);
-                }
                 self.save_project();
                 if self.screen == Screen::Processing {
                     self.go(Screen::Workspace);
@@ -286,7 +286,8 @@ impl eframe::App for PiccassoApp {
     }
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.poll_job(ctx);
-        crate::ai::poll(self);
+        if self.updater.poll() { ctx.request_repaint(); }
+        if self.updater.busy() { ctx.request_repaint_after(std::time::Duration::from_millis(200)); }
         crate::screens::show(self, ctx);
         crate::ui::show_toasts(self, ctx);
         crate::ui::show_confirm(self, ctx);

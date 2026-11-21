@@ -5,3 +5,11 @@ members = ["crates/piccasso-core", "crates/piccasso-app"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
+
+# Release builds: whole-program optimisation (link-time optimisation across all
+# crates, one code-generation unit) for the fastest native code, and no debug
+# symbols in the shipped binary.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true

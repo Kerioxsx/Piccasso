@@ -8,7 +8,7 @@
 - Phone link (desktop): the phone must be on the same network, and it will warn about the self-signed certificate once. Some browsers refuse camera access on pages with certificate warnings; the page then offers "Send a photo" instead of live video.
 
 ## Image analysis
-- Analysis is classical computer vision, not object recognition: Piccasso finds regions, edges, tones and colours, so instructions talk about "a large oval near the middle" rather than "the cat's head" (the optional AI helper adds real object names).
+- Analysis is classical computer vision, not object recognition: Piccasso finds regions, edges, tones and colours, so instructions talk about "a large oval near the middle" rather than "the cat's head" (by design: Piccasso uses no AI).
 - Subject separation assumes the subject differs in colour from the picture's edges. Busy or same-coloured backgrounds may merge with the subject; use crop, object removal, "simplify background" or more contrast. Low-contrast pictures fall back to a whole-picture plan with a notice.
 - Pencil-pressure percentages and grades are typical starting points, not measurements of your pencil or paper.
 
@@ -23,6 +23,11 @@
 - Brush-size measuring draws test lines in the spot you choose and removes them with Ctrl+Z (Cmd+Z on macOS); programs with a different undo key need the test lines removed by hand. Soft or textured brushes measure a little wider than their core.
 - Depth mode stacks coats, so it needs a program whose opacity applies per stroke and multiplies when strokes are layered (most paint programs at 100 % flow). Detail finer than the line brush is lost, and drawing a detailed picture takes several minutes.
 - Exact replica: the copy is exact up to the number of shades you choose (2–8) and the brush you set. Set the same brush size in your program, 100 % hardness, and per-stroke opacity (not flow/build-up). Soft brushes, pressure dynamics, smoothing/stabilisers or "flow" accumulation change the result. Opacity is set by clicking the recorded slider position, so the program must accept a click on its slider (most do; some need a typed value, then use "a button per shade" with presets).
+
+## Updates and timelapse
+- The desktop updater replaces the program where it is. If Piccasso sits in a folder you can't write to (for example Program Files without administrator rights), download the new version from the website instead. On macOS the whole Piccasso.app is swapped; the app is ad-hoc signed, not notarised, so macOS may ask again on first start.
+- Desktop timelapses capture the drawing area of the screen twice a second (slower on macOS/Windows, where each capture runs the system screenshot tool). Windows and macOS capture are untested.
+- Web timelapses need a browser that can record video from a canvas (MediaRecorder); frames are kept in memory until saved, so very long sessions are thinned out (at most 900 photos).
 
 ## Other
 - Browsers decide whether the screen can stay awake (battery saver can refuse). The app shows the status and advises adjusting auto-lock otherwise.

@@ -5,7 +5,6 @@
 //! run in Rust (`piccasso-core`); egui only draws the interface.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod ai;
 mod app;
 mod bridge;
 mod camera;
@@ -13,7 +12,9 @@ mod export;
 mod screen_pick;
 mod screens;
 mod settings;
+mod timelapse;
 mod ui;
+mod updater;
 
 /// Developer/QA entry points (no window):
 ///   --autodraw-test X Y W H [speed]  draw the demo's outline strokes into that screen area with the real mouse
@@ -111,8 +112,33 @@ fn dev_commands() -> bool {
         }
         let (tx, rx) = std::sync::mpsc::channel();
         let t0 = std::time::Instant::now();
-        screens::autodraw::run_replica(plan, [f[0].round(), f[1].round()], tools, screens::autodraw::OpacityMode::Slider, speed, std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)), tx);
-        for m in rx.try_iter() { if let screens::autodraw::Msg::Done(s) = m { println!("{s} ({:.1}s)", t0.elapsed().as_secs_f64()); } }
+        // PICCASSO_TIMELAPSE=<folder>: record a timelapse GIF of the drawing area there
+        let rec = std::env::var("PICCASSO_TIMELAPSE").ok().map(|d| (std::path::PathBuf::from(d), [n[0] as i32, n[1] as i32, n[2] as i32, n[3] as i32]));
+        screens::autodraw::with_timelapse(rec, tx, |tx| screens::autodraw::run_replica(plan, [f[0].round(), f[1].round()], tools, screens::autodraw::OpacityMode::Slider, speed, std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)), tx));
+        for m in rx.try_iter() {
+            match m {
+                screens::autodraw::Msg::Done(s) => println!("{s} ({:.1}s)", t0.elapsed().as_secs_f64()),
+                screens::autodraw::Msg::Timelapse(r) => println!("timelapse: {r:?}"),
+                _ => {}
+            }
+        }
+        return true;
+    }
+    // --check-update: ask GitHub for the latest release (no download)
+    #[cfg(feature = "update")]
+    if args.get(1).map(|s| s.as_str()) == Some("--check-update") {
+        println!("this build: {} ({})", updater::current_version(), updater::asset_name().unwrap_or("no release file"));
+        match updater::check() { Ok(Some(i)) => println!("update available: {} ({} bytes, digest {:?})", i.version, i.size, i.digest), Ok(None) => println!("up to date"), Err(e) => println!("check failed: {e}") }
+        return true;
+    }
+    // --self-update: install the latest release over this program (no restart)
+    #[cfg(feature = "update")]
+    if args.get(1).map(|s| s.as_str()) == Some("--self-update") {
+        match updater::check() {
+            Ok(Some(i)) => match updater::install(&i, &|_| {}) { Ok(()) => println!("installed {}", i.version), Err(e) => println!("install failed: {e}") },
+            Ok(None) => println!("up to date"),
+            Err(e) => println!("check failed: {e}"),
+        }
         return true;
     }
     #[cfg(feature = "phone")]

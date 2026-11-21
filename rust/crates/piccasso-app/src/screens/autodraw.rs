@@ -98,6 +98,8 @@ pub struct AutoDrawState {
     line_px: f64,
     replica_lines: bool,
     colors: usize,
+    timelapse: bool,
+    timelapse_file: Option<std::path::PathBuf>,
     fine_detail: bool,
     cal_rx: Option<Receiver<Result<piccasso_core::tooldetect::SizeCurve, String>>>,
     speed_rx: Option<Receiver<Result<(f64, f64), String>>>,
@@ -120,7 +122,7 @@ pub struct AutoDrawState {
 }
 impl Default for AutoDrawState {
     fn default() -> Self {
-        AutoDrawState { pick: None, tones: 4, brush_px: 6.0, depth: true, coat: 0.25, line_px: 2.0, replica_lines: true, colors: 0, fine_detail: true, cal_rx: None, speed_rx: None, cal_log: Default::default(), opacity_mode: OpacityMode::Slider, tools: Tools::new_default(), replica: None, replica_rx: None, sim: None,
+        AutoDrawState { pick: None, tones: 4, brush_px: 6.0, depth: true, coat: 0.25, line_px: 2.0, replica_lines: true, colors: 0, timelapse: false, timelapse_file: None, fine_detail: true, cal_rx: None, speed_rx: None, cal_log: Default::default(), opacity_mode: OpacityMode::Slider, tools: Tools::new_default(), replica: None, replica_rx: None, sim: None,
             source: 1, detail: 1.5, speed: 2500.0, paths: None, area: None, corner: [None, None], capture: None, run: None, progress: 0.0, status: String::new() }
     }
 }
@@ -252,6 +254,34 @@ fn start_pick(st: &mut AutoDrawState, what: PickWhat, ctx: &egui::Context) {
 pub enum Msg {
     Progress(f32),
     Done(String),
+    /// Timelapse saved (or why not).
+    Timelapse(Result<std::path::PathBuf, String>),
+}
+
+fn area_i32(a: [f64; 4]) -> [i32; 4] { [a[0].round() as i32, a[1].round() as i32, a[2].round() as i32, a[3].round() as i32] }
+
+/// Run a drawing job, optionally recording a timelapse of `area` meanwhile.
+/// The job's own Done message is held back until the timelapse is saved, so
+/// the window doesn't come back before the file exists.
+#[cfg(feature = "autodraw")]
+pub fn with_timelapse(record: Option<(std::path::PathBuf, [i32; 4])>, tx: std::sync::mpsc::Sender<Msg>, job: impl FnOnce(std::sync::mpsc::Sender<Msg>)) {
+    let Some((dir, area)) = record else { return job(tx) };
+    let rec = crate::timelapse::Recorder::start(area, Duration::from_millis(500));
+    let (itx, irx) = channel();
+    let fwd = tx.clone();
+    let forward = std::thread::spawn(move || {
+        let mut done = None;
+        for m in irx { match m { Msg::Done(s) => done = Some(s), other => { let _ = fwd.send(other); } } }
+        done
+    });
+    job(itx);
+    let done = forward.join().ok().flatten().unwrap_or_default();
+    let frames = rec.finish(area);
+    let _ = std::fs::create_dir_all(&dir);
+    let path = crate::timelapse::new_path(&dir);
+    let r = crate::timelapse::encode_gif(&frames, 15.0, &path).map(|_| path);
+    let _ = tx.send(Msg::Timelapse(r));
+    let _ = tx.send(Msg::Done(done));
 }
 
 #[cfg(feature = "autodraw")]
@@ -660,6 +690,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
             match m {
                 Msg::Progress(p) => st.progress = p,
                 Msg::Done(s) => { st.status = s; minimize = Some(false); }
+                Msg::Timelapse(r) => match r { Ok(p) => st.timelapse_file = Some(p), Err(e) => st.status = format!("Timelapse not saved: {e}") },
             }
         }
         if minimize == Some(false) { st.run = None; }
@@ -928,6 +959,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
             if ui.add(egui::Slider::new(&mut hz, 30..=240).text("Program reads mouse (times/s)")).on_hover_text("Drawing programs read the mouse 60-240 times a second and join the readings with straight lines. Piccasso moves the mouse continuously and slows down on curves just enough that nothing is cut. Lower this if curves look flattened; raise it for a faster drawing.").changed() { READ_HZ.store(hz, Ordering::Relaxed); }
             let mut dwell = DWELL_MS.load(Ordering::Relaxed);
             if ui.add(egui::Slider::new(&mut dwell, 0..=80).text("Extra pause at pen down (ms)")).on_hover_text("Extra time for programs that miss the start of strokes. 0 is right for most.").changed() { DWELL_MS.store(dwell, Ordering::Relaxed); }
+            ui.checkbox(&mut st.timelapse, "Record a timelapse (animated GIF)").on_hover_text("Captures the drawing area twice a second while Piccasso draws, then saves a 15-second GIF in Pictures/Piccasso.");
             if let Some(ar) = st.area {
                 let scale = fit_into(ar, aspect)[3];
                 let secs = (down * scale) / st.speed + paths.len() as f64 * 0.03 + (up * scale) * 0.0;
@@ -948,7 +980,8 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                     let cancel = Arc::new(AtomicBool::new(false));
                     let f = fit_into(st.area.unwrap(), aspect);
                     let (plan, tools, mode, sp, c2) = (st.replica.as_ref().unwrap().1.clone(), st.tools.clone(), st.opacity_mode, st.speed, cancel.clone());
-                    std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(900)); run_replica(plan, [f[0].round(), f[1].round()], tools, mode, sp, c2, tx) });
+                    let rec = st.timelapse.then(|| (crate::timelapse::output_dir(&app.data_dir), area_i32(st.area.unwrap())));
+                    std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(900)); with_timelapse(rec, tx, |tx| run_replica(plan, [f[0].round(), f[1].round()], tools, mode, sp, c2, tx)) });
                     st.run = Some((rx, cancel));
                     st.progress = 0.0;
                     st.status = "Drawing the replica… move the mouse to stop.".into();
@@ -957,7 +990,8 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                     let (tx, rx) = channel();
                     let cancel = Arc::new(AtomicBool::new(false));
                     let (p2, ar, sp, c2) = (paths.clone(), st.area.unwrap(), st.speed, cancel.clone());
-                    std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(900)); run_drawing(p2, ar, aspect, sp, c2, tx) });
+                    let rec = st.timelapse.then(|| (crate::timelapse::output_dir(&app.data_dir), area_i32(ar)));
+                    std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(900)); with_timelapse(rec, tx, |tx| run_drawing(p2, ar, aspect, sp, c2, tx)) });
                     st.run = Some((rx, cancel));
                     st.progress = 0.0;
                     st.status = "Drawing… move the mouse to stop.".into();
@@ -965,6 +999,12 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                 }
             }
             if !st.status.is_empty() { ui.label(RichText::new(&st.status).strong()); }
+            if let Some(p) = st.timelapse_file.clone() {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(RichText::new(format!("Timelapse saved: {}", p.display())).small());
+                    if ui.small_button("Show in folder").clicked() { crate::timelapse::reveal(&p); }
+                });
+            }
             ui.add_space(8.0);
             if ui.button("◀ Back to steps").clicked() { back = true; }
             let _ = primary;

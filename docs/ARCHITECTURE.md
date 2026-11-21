@@ -25,7 +25,7 @@ Piccasso is implemented twice on purpose: a dependency-free web app (PWA) and a 
 | Storage | `js/core/store.js` (IndexedDB) | `store.rs` (one `.piccasso.json` per project + PNG render cache) |
 | Pipeline orchestration | `js/core/pipeline.js` + `js/worker.js` | `pipeline.rs` (+ background thread in the app) |
 | Auto-draw strokes | n/a | `strokes.rs` |
-| UI | `js/ui/*` (screens, canvas renderer, gestures, wake lock, WebXR, AI) | `piccasso-app/src/*` (egui screens, phone bridge, auto-draw, camera) |
+| UI | `js/ui/*` (screens, canvas renderer, gestures, wake lock, WebXR, export) | `piccasso-app/src/*` (egui screens, phone bridge, auto-draw, camera) |
 
 ## Data flow
 

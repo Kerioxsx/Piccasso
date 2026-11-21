@@ -13,7 +13,6 @@ pub struct WorkspaceState {
     pub mirror: bool,
     pub checks: HashSet<String>,
     pub term: Option<String>,
-    pub show_local: bool,
     pub motion_start: Option<std::time::Instant>,
     pub motion_step: String,
 }
@@ -80,11 +79,9 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                 }
             });
             ui.label(RichText::new(&step.title).size(22.0).strong());
-            let instr = if ws.show_local { step.local_instruction.clone().unwrap_or(step.instruction.clone()) } else { step.instruction.clone() };
+            // projects made with the old AI helper show the built-in wording
+            let instr = if step.source.as_deref() == Some("ai") { step.local_instruction.clone().unwrap_or(step.instruction.clone()) } else { step.instruction.clone() };
             ui.label(RichText::new(instr).size(17.0));
-            if step.source.as_deref() == Some("ai") {
-                ui.horizontal(|ui| { ui.label(RichText::new("Wording written by the AI helper.").small().weak()); if ui.small_button(if ws.show_local { "Show AI wording" } else { "Show built-in wording" }).clicked() { ws.show_local = !ws.show_local; } });
-            }
             ui.horizontal_wrapped(|ui| {
                 ui.add_enabled(false, egui::Button::new("🔊 Read aloud")).on_disabled_hover_text("Audio readout is available in the web/phone version. Use your system's screen reader to hear instructions here.");
                 if ui.selectable_label(!ws.hide_guide, if ws.hide_guide { "👁 Show guide" } else { "👁 Hide guide" }).clicked() { ws.hide_guide = !ws.hide_guide; }

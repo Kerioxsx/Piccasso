@@ -7,7 +7,7 @@
   "scripts": {
     "serve": "python3 -m http.server 8080 -d web",
     "test": "node --test web/tests/*.test.mjs",
-    "test:e2e": "node web/tests/e2e/smoke.mjs",
+    "test:e2e": "node web/tests/e2e/smoke.mjs && node web/tests/e2e/timelapse.mjs",
     "data": "node tools/sync-shared.mjs && node tools/make-vectors.mjs && node tools/make-demo.mjs",
     "icons": "node tools/make-icons.mjs"
   },

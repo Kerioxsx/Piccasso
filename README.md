@@ -28,7 +28,6 @@ python3 -m http.server 8080 -d web      # then open http://localhost:8080
 cd rust
 cargo run --release -p piccasso-app                    # auto-draw + phone link included
 cargo run --release -p piccasso-app --features camera  # + webcam (nokhwa)
-cargo run --release -p piccasso-app --features ai      # + optional AI step writer
 ```
 
 Both apps include a **demo project** (pear and mug, painted procedurally by `tools/demo-image.mjs`) so everything can be tried without importing a picture. The same file is at `samples/demo-project.piccasso.json`.
@@ -54,6 +53,8 @@ More detail: [web/README.md](web/README.md) · [rust/README.md](rust/README.md) 
 10. **Auto-draw (desktop)**: pick a drawing source (outline, outline + inner shapes, or detailed line art), mark the canvas corners of any drawing program, and Piccasso moves the real mouse to draw it, fast, with optimised stroke order. Moving the mouse stops it instantly.
 11. **Exact replica with shading (desktop)**: choose 2–8 shades and your brush size, record where your program's **brush button** and **opacity control** are (an opacity slider's 0 % and 100 % ends, or one button per shade). For each shade Piccasso clicks the brush, sets the opacity and fills exactly that shade's area with continuous strokes kept one brush-radius inside the boundary; outlines go on last at 100 %. A simulator previews the result and shows the expected match before you start. Without an opacity control, shades are made by stroke spacing. **Depth mode** (for 3D-looking, smoothly shaded pictures) builds tone from many light coats at one opacity, like glazing with a pencil, with a single solid pass for pure black; parts thinner than the fill brush (ink lines, hatching) are traced along their centre with a separate **line brush** you can also record. Paper tint in photos of drawings is treated as white. Tool positions (brush buttons, opacity slider ends, **brush-size slider** ends with their pixel range) and the drawing area can be recorded by hovering for 3 s or with **Pick on screen**: Piccasso shows the screen full-size and you click a tool or drag a box around the canvas. Measured on a test paint program: 97.6 % of pixels within one shade of the picture, average error 2.5/255, 50 s for a 747 × 560 px drawing.
 12. **Every detail, smooth motion, colour (desktop)**: ink lines and pencil hatching are found on the full-resolution picture and each is drawn as one smooth stroke at its own darkness and width. The mouse moves continuously, slowing on curves only as much as the program's mouse-reading rate requires, so there are no gaps, no cut corners and no point-by-point jumps. **Colour replica** paints a palette of 2–16 colours (lightest first, no white gaps between them). Piccasso selects each colour in your program by typing it into a **hex field**, or by clicking your **colour wheel, colour square and colour sliders**: it can find them on screen automatically, clicks the closest colour, looks again and repeats until the swatch matches. **Brush-size sliders without pixel numbers** are measured automatically: Piccasso draws a few test lines in an empty spot, measures them on screen and undoes them.
+13. **Updates (desktop)**: Piccasso checks GitHub for a new release when it starts (can be turned off in Settings). "Install and restart" downloads the file for your computer, checks its SHA-256 against the one GitHub publishes, replaces the app (the whole Piccasso.app on macOS) and restarts. The web app updates itself in the background and offers "Update now".
+14. **Timelapse**: tick "Record a timelapse" in auto-draw to get a 15-second GIF of the drawing (Pictures/Piccasso), or in camera tracing (web) to record your real drawing on paper: a photo every 2 seconds, saved or shared as a video.
 12. **Check a photo** of your drawing (on device, never uploaded): paper detection, flattening, gentle structural feedback ("about 12% wider than the guide").
 13. **Projects** saved locally (IndexedDB / project files on disk), rename, duplicate, delete, resume; export guide PNG, printable step sheet, portable project file; import from either app.
 
@@ -76,7 +77,6 @@ More detail: [web/README.md](web/README.md) · [rust/README.md](rust/README.md) 
 | Exact replica (shades, opacity/brush tools) | Not possible in browsers | Done | Tested end to end on X11 with a mock paint program |
 | Photo comparison | Done | Done | |
 | Projects, export/import, step sheet | Done | Done | Step sheet: printable HTML |
-| Optional AI step writer (Claude) | Done | Done (`ai` feature) | Off by default; your own API key; explicit consent |
 | Audio readout | Done (Web Speech) | Not available (use the OS screen reader) | Button disabled with explanation |
 | Native iOS/Android apps | Not built | | The PWA is the phone app |
 
@@ -84,12 +84,12 @@ More detail: [web/README.md](web/README.md) · [rust/README.md](rust/README.md) 
 
 - **Web**: camera (tracing, photo capture) and screen wake lock, both requested only when used. WebXR immersive-ar where available. No accounts, no analytics.
 - **Desktop**: file dialogs; camera only with the `camera` feature (macOS/Windows camera permission); local network server only while the phone link is open; mouse control only during auto-draw (macOS: Accessibility permission; Wayland sessions may block synthetic input, use X11/XWayland).
-- **API keys**: none required. The optional AI helper uses an Anthropic API key (web: entered in Settings, kept for the session unless you choose to remember it; desktop: `ANTHROPIC_API_KEY`). Model default `claude-opus-5-5`.
-- **Libraries** (desktop, permissive licences): eframe/egui, image, serde, rfd, directories, keepawake, enigo (mouse input), tiny_http + rcgen (local HTTPS), qrcode, optional nokhwa (webcam) and ureq (AI). The web app has no runtime dependencies (the AI helper loads the Anthropic SDK from a CDN only when used). The stroke extraction, ordering and drawing logic for auto-draw is Piccasso's own code.
+- **No AI**: Piccasso uses no AI models, AI generation or AI image analysis. Every guide comes from deterministic image processing, computer vision and geometry. No API keys or accounts.
+- **Libraries** (desktop, permissive licences): eframe/egui, image, serde, rfd, directories, keepawake, enigo (mouse input), tiny_http + rcgen (local HTTPS), qrcode, optional nokhwa (webcam). The web app has no runtime dependencies. The stroke extraction, ordering and drawing logic for auto-draw is Piccasso's own code.
 
 ## Privacy
 
-Everything runs on the device by default. Pictures, analysis, projects and comparison photos are never uploaded. The only network use is the optional AI helper (after you turn it on and confirm) and the desktop phone link, which stays on your local network.
+Everything runs on the device by default. Pictures, analysis, projects and comparison photos are never uploaded. The only network use is the desktop phone link, which stays on your local network, and the desktop update check (GitHub releases, can be turned off).
 
 ## Tests
 

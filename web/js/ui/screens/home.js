@@ -13,7 +13,7 @@ export function renderOnboarding(main) {
       mode('steps', 'Guided steps', 'The picture is broken into simple shapes, outlines and shading, with plain-language instructions made for your picture.'),
       mode('lock', 'Locked reference', 'Keep the guide on screen without it moving when you bump the phone. The screen stays awake while you draw.'),
       mode('ar', 'Camera tracing', 'Look at your paper through the camera and see the guide on top of it, so you can trace. Works best on supported phones.')),
-    h('p.small.muted', 'Your pictures stay on this device. Nothing is uploaded unless you turn on the optional AI helper in Settings.'),
+    h('p.small.muted', 'Your pictures stay on this device. Nothing is uploaded, and no AI is used.'),
     h('div.row', h('button.btn.primary', { type: 'button', on: { click: done } }, 'Get started'),
       h('button.btn', { type: 'button', on: { click: async () => { done(); await startDemo(); } } }, 'Try the demo first'))));
 }

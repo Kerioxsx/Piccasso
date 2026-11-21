@@ -1,6 +1,6 @@
 # Piccasso desktop (Rust)
 
-A native Rust app. `piccasso-core` does decoding, image processing, analysis, step generation, motion paths and auto-draw strokes, comparison, the lock state machine, project format and storage. `piccasso-app` is the egui interface plus platform services: keep-awake, file dialogs, webcam, phone bridge (local HTTPS server), mouse control and the optional AI helper.
+A native Rust app. `piccasso-core` does decoding, image processing, analysis, step generation, motion paths and auto-draw strokes, comparison, the lock state machine, project format and storage. `piccasso-app` is the egui interface plus platform services: keep-awake, file dialogs, webcam, phone bridge (local HTTPS server), mouse control, timelapse recording and the update checker.
 
 ## Build and run
 ```bash
@@ -14,7 +14,6 @@ Cargo features of `piccasso-app`:
 | `autodraw` | yes | Auto-draw with real mouse movement (enigo) |
 | `phone` | yes | Phone as camera / AR viewer (tiny_http + rcgen + qrcode) |
 | `camera` | no | Webcam via nokhwa |
-| `ai` | no | AI step writer via the Claude Messages API (`ANTHROPIC_API_KEY`) |
 
 Linux build/runtime packages: a desktop with X11 or Wayland, `libxkbcommon-x11` (usually installed). Webcam (`camera`) may need `libv4l`/`clang`.
 

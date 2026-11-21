@@ -26,6 +26,9 @@ jobs:
           cp -r web/. _site/app/
           rm -f _site/README.md _site/app/README.md
           touch _site/.nojekyll
+          # a new cache name on every deploy, so installed web apps pick up the update
+          sed -i "s/const VERSION = '[^']*'/const VERSION = 'piccasso-${GITHUB_SHA::12}'/" _site/app/sw.js
+          grep -q "piccasso-${GITHUB_SHA::12}" _site/app/sw.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
