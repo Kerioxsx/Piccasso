@@ -49,8 +49,9 @@ Legend: ✅ done · 🟡 partly done · ⬜ to build. "Web" = installable web ap
 ## 4. Workspace
 | Feature | Status |
 |---|---|
-| Minimal interface, fullscreen, dark/light themes, interface scaling, touch controls, side-by-side comparison, session timer, undo (step history) | ✅ |
-| Paper and graphite themes, accent colours, floating toolbar, custom tool placement, keyboard shortcut editor, workspace presets, multiple references, split screen | ⬜ |
+| Minimal interface, fullscreen, touch controls, side-by-side comparison, session timer, undo (step history) | ✅ |
+| Themes: match device, light, dark, **paper** (warm paper with a fine grain) and **graphite**; accent colour (6 presets or any colour); interface size | ✅ |
+| Floating toolbar, custom tool placement, keyboard shortcut editor, workspace presets, multiple references, split screen | ⬜ |
 
 ## 5. Learning system (skill tree, lessons, exercises)
 | Feature | Status |
@@ -75,11 +76,12 @@ Legend: ✅ done · 🟡 partly done · ⬜ to build. "Web" = installable web ap
 ## 8. Personal library
 | Feature | Status |
 |---|---|
-| Project library, thumbnails, recent, search, automatic local saving, offline access, import/export, backup | ✅ |
-| Folders, tags, favourites, covers, notes, version history, before/after | ⬜ |
+| Project library, thumbnails, recent, automatic local saving, offline access, import/export, backup | ✅ |
+| Folders, tags, favourites, project notes, search across names/tags/notes, sorting (recent, name, least finished) | ✅ (kept in the project file, so they travel with exports) |
+| Custom covers, version history, before/after | ⬜ |
 
 ## 9. Customization
-Overlay opacity, grid spacing, paper dimensions, text scale and motion are adjustable ✅. Custom themes/accents, guide colours/thickness, shortcuts, toolbars, templates ⬜.
+Overlay opacity, grid spacing, paper dimensions, text scale, interface size, motion, themes and accent colours ✅; guide colour/thickness in Guides ✅. Keyboard shortcut editor, custom toolbars, templates ⬜.
 
 ## 10. Advanced drawing modes
 Style presets exist (sketch, realistic, anime, etc.) 🟡. Dedicated portrait / landscape / still life / figure / architecture / manga / technical / symmetry modes ⬜.
@@ -101,5 +103,5 @@ Privacy: local-first, no account, no data collection, camera permission explaine
 3. ~~3D construction sandbox~~ (done: 3D).
 4. ~~Skill tree, lessons and exercises~~ (done: Learn → Skill tree).
 5. ~~Analysis tools~~ (done: Analyze).
-6. Workspace themes (paper, graphite, accent colours), library folders/tags/version history.
+6. ~~Workspace themes and library organisation~~ (done; version history still open).
 7. Desktop ports of the Studio and the new web modules.

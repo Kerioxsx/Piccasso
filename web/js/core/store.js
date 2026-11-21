@@ -59,6 +59,12 @@ export class ProjectStore {
     await this.backend.put(copy);
     return copy;
   }
+  /** Change some fields without moving the project to the top of the recent list. */
+  async update(id, patch) {
+    const p = await this.get(id);
+    if (!p) throw new Error('Project not found.');
+    return this.save({ ...p, ...patch }, { touch: false });
+  }
   async rename(id, name) {
     const p = await this.get(id);
     if (!p) throw new Error('Project not found.');

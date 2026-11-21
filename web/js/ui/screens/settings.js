@@ -1,4 +1,6 @@
-import { app } from '../../state.js';
+import { app, ACCENTS } from '../../state.js';
+
+const markAccent = (e) => { const g = e.target.closest('[role=group]'); g.querySelectorAll('[aria-pressed]').forEach((b) => b.setAttribute('aria-pressed', 'false')); const b = e.target.closest('button'); if (b) b.setAttribute('aria-pressed', 'true'); };
 import { h, toggle, segmented, slider, toast, confirmDialog } from '../dom.js';
 import { WakeLock } from '../wakelock.js';
 import { speechSupported } from '../speech.js';
@@ -13,7 +15,13 @@ export async function renderSettings(main) {
   main.appendChild(h('div.stack', { style: { maxWidth: '760px' } },
     h('h1', 'Settings'),
     h('section.card.stack', h('h2', 'Display'),
-      segmented('Theme', [['system', 'Match device'], ['light', 'Light'], ['dark', 'Dark']], s.theme, (v) => set('theme', v)),
+      segmented('Theme', [['system', 'Match device'], ['light', 'Light'], ['dark', 'Dark'], ['paper', 'Paper'], ['graphite', 'Graphite']], s.theme, (v) => set('theme', v)),
+      h('div.field', h('span', 'Accent colour'),
+        h('div.row', { role: 'group', 'aria-label': 'Accent colour' },
+          h('button.chip', { type: 'button', 'aria-pressed': String(s.accent === 'theme'), on: { click: (e) => { set('accent', 'theme'); markAccent(e); } } }, 'Theme'),
+          ...Object.entries(ACCENTS).map(([k, c]) => h('button.accent-swatch', { type: 'button', 'aria-label': k, 'aria-pressed': String(s.accent === k), style: { background: c }, on: { click: (e) => { set('accent', k); markAccent(e); } } })),
+          h('label.accent-custom', { title: 'Any colour' }, h('input', { type: 'color', 'aria-label': 'Custom accent colour', value: /^#/.test(s.accent) ? s.accent : '#2f7466', on: { input: (e) => { set('accent', e.target.value); markAccent(e); } } })))),
+      slider({ label: 'Interface size', min: 0.85, max: 1.4, step: 0.05, value: s.uiScale || 1, format: (v) => Math.round(v * 100) + '%', onInput: (v) => set('uiScale', v) }),
       slider({ label: 'Instruction text size', min: 0.8, max: 1.8, step: 0.1, value: s.textScale, format: (v) => Math.round(v * 100) + '%', onInput: (v) => set('textScale', v) }),
       segmented('Motion', [['system', 'Match device'], ['reduce', 'Reduce motion'], ['full', 'Allow motion']], s.motion, (v) => set('motion', v))),
     h('section.card.stack', h('h2', 'Guidance'),
