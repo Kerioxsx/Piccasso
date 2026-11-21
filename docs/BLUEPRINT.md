@@ -14,12 +14,12 @@ Legend: ✅ done · 🟡 partly done · ⬜ to build. "Web" = installable web ap
 | Grid drawing mode (custom grids) | ✅ | Prepare → grid (cm), guide layers |
 | Contour mode | ✅ | Contour step/layer, Studio → Contours |
 | Negative space mode | ✅ | Studio → Negative space |
-| Perspective guide (vanishing points) | ⬜ | planned: guide overlay with draggable vanishing points |
-| Proportion guides (face, figure) | ⬜ | planned: overlay templates |
+| Perspective guide (vanishing points) | ✅ | **Guides** → 1/2/3-point, draggable vanishing points and horizon |
+| Proportion guides (face, figure) | ✅ | Guides → face canon, 6/7/8-head figure, composition (thirds, golden ratio, symmetry, diagonals) |
 | Mirror mode | ✅ | Prepare (flip), Studio → Mirror |
-| Smart zoom (magnify, keep alignment) | 🟡 | Locked view pinch zoom; dedicated loupe planned |
+| Smart zoom (magnify, keep alignment) | ✅ | Locked view pinch zoom; Guides magnifier (3× loupe) |
 | Crop to paper / paper calibration | ✅ | Prepare (paper sizes in cm, bank-card measure), AR corner calibration |
-| Line weight guide | 🟡 | Pencil-pressure step; dedicated line-weight chart planned |
+| Line weight guide | ✅ | Pencil-pressure step; Guides → printable line-weight chart |
 | Gesture drawing mode | ⬜ | planned with timed practice (§11) |
 | Step rewind / checkpoints / hints / beginner mode | ✅ | Steps with back/next, saved progress, tips, glossary |
 
@@ -92,7 +92,7 @@ Desktop: Rust core shared with the web algorithms, native performance, multithre
 Privacy: local-first, no account, no data collection, camera permission explained ✅; optional cloud sync ⬜ (would be opt-in).
 
 ## Build order (next)
-1. Perspective and proportion guide overlays; line-weight chart.
+1. ~~Perspective and proportion guide overlays; line-weight chart~~ (done: Guides).
 2. Gesture and timed practice (§11) with pose/reference collections from the user's own pictures.
 3. 3D construction sandbox (§7).
 4. Skill tree, lessons and exercises (§5).
