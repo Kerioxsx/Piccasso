@@ -8,13 +8,15 @@ export const DEFAULT_SETTINGS = {
   theme: 'system', textScale: 1, motion: 'system', autoRead: false,
   holdToUnlock: true, holdMs: 1200, keepAwake: true, lockTimer: true,
   arOpacity: 0.5, arDefaultLayer: 'outline',
-  aiEnabled: false, aiModel: 'claude-opus-5-5', rememberKey: false,
   onboarded: false, lang: 'en',
 };
 
 function safeGet(storage, key) { try { return storage.getItem(key); } catch { return null; } }
 function safeSet(storage, key, v) { try { storage.setItem(key, v); return true; } catch { return false; } }
 function safeDel(storage, key) { try { storage.removeItem(key); } catch { /* ignore */ } }
+// the old optional AI helper is gone: forget any API key it stored
+if (globalThis.localStorage) safeDel(localStorage, 'piccasso.aikey');
+if (globalThis.sessionStorage) safeDel(sessionStorage, 'piccasso.aikey');
 
 export function loadSettings() {
   let s = {};
@@ -84,22 +86,12 @@ export const app = {
   store: new ProjectStore('indexedDB' in globalThis ? new IDBBackend() : new MemoryBackend()),
   renderCache: new RenderCache(),
   project: null, src: null, srcCanvas: null, renders: {}, rendersHash: null,
-  aiKeySession: null,
 
   saveSettings() {
     const { ...s } = this.settings;
     safeSet(localStorage, SETTINGS_KEY, JSON.stringify(s));
     applySettings(this.settings);
   },
-  get aiKey() {
-    return this.aiKeySession || safeGet(localStorage, 'piccasso.aikey') || safeGet(sessionStorage, 'piccasso.aikey') || '';
-  },
-  setAiKey(key, remember) {
-    this.aiKeySession = key || null;
-    safeDel(localStorage, 'piccasso.aikey'); safeDel(sessionStorage, 'piccasso.aikey');
-    if (key) safeSet(remember ? localStorage : sessionStorage, 'piccasso.aikey', key);
-  },
-
   async setProject(p, { src = null } = {}) {
     if (!this.project || this.project.id !== p.id) { this.renders = {}; this.rendersHash = null; }
     this.project = p;

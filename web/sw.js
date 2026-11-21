@@ -1,13 +1,13 @@
 // Piccasso service worker: offline app shell + runtime cache.
 // Projects live in IndexedDB, so they are available offline too.
-const VERSION = 'piccasso-v2';
+const VERSION = 'piccasso-v3';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/state.js', 'js/worker.js',
   'js/core/image.js', 'js/core/analysis.js', 'js/core/steps.js', 'js/core/render.js', 'js/core/pipeline.js',
   'js/core/geometry.js', 'js/core/compare.js', 'js/core/lock.js', 'js/core/capabilities.js', 'js/core/project.js', 'js/core/store.js',
   'js/ui/dom.js', 'js/ui/imageio.js', 'js/ui/canvas.js', 'js/ui/gestures.js', 'js/ui/speech.js', 'js/ui/wakelock.js',
-  'js/ui/processing.js', 'js/ui/ai.js', 'js/ui/exporter.js', 'js/ui/webxr.js',
+  'js/ui/processing.js', 'js/ui/exporter.js', 'js/ui/timelapse.js', 'js/ui/webxr.js',
   'js/ui/screens/home.js', 'js/ui/screens/prepare.js', 'js/ui/screens/process.js', 'js/ui/screens/workspace.js',
   'js/ui/screens/locked.js', 'js/ui/screens/ar.js', 'js/ui/screens/compare.js', 'js/ui/screens/library.js', 'js/ui/screens/settings.js',
   'shared/difficulty.json', 'shared/styles.json', 'shared/paper.json', 'shared/step-kinds.json', 'shared/pressure.json', 'shared/colors.json', 'shared/strings.en.json', 'shared/glossary.en.json',

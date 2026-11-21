@@ -12,15 +12,15 @@ pub struct Settings {
     pub keep_awake: bool,
     pub lock_timer: bool,
     pub overlay_opacity: f32,
-    pub ai_enabled: bool,
-    pub ai_model: String,
     pub onboarded: bool,
+    /// Look for a new version on start (GitHub releases).
+    pub check_updates: bool,
 }
 impl Default for Settings {
     fn default() -> Self {
         Settings {
             theme: "system".into(), ui_scale: 1.0, hold_to_unlock: true, hold_ms: 1200, keep_awake: true, lock_timer: true,
-            overlay_opacity: 0.5, ai_enabled: false, ai_model: "claude-opus-5-5".into(), onboarded: false,
+            overlay_opacity: 0.5, onboarded: false, check_updates: true,
         }
     }
 }

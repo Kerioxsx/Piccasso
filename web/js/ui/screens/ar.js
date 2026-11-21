@@ -13,6 +13,7 @@ import { cssMatrix3d, homography, applyH, transformedRect, detectPaper, orderCor
 import { paperLayout } from '../../core/steps.js';
 import { toGray } from '../../core/image.js';
 import { WakeLock } from '../wakelock.js';
+import { Timelapse, timelapseSupported, saveVideo } from '../timelapse.js';
 
 const LIMITS = 'The camera view is an alignment aid. The guide is drawn on your screen over the camera picture; it is not projected onto the paper. Alignment can drift when the phone or paper moves, and the app cannot correct for every movement. For best results, put the phone on a stand or a stack of books above the paper, use even lighting, and tape the paper down.';
 
@@ -55,6 +56,29 @@ export async function renderAr(main) {
   const followToggleInput = followToggle.querySelector('input');
   const nudge = (dx, dy) => { if (ar.alignmentLocked) return; if (paperCorners) paperCorners = paperCorners.map(([x, y]) => [x + dx, y + dy]); else { simple.ox += dx; simple.oy += dy; } place(); save(); };
 
+  // ----- timelapse of the real drawing (a still every few seconds) -----
+  const tl = new Timelapse(video, { everyMs: 2000 });
+  const tlStatus = h('span.small.muted');
+  const tlSave = h('button.btn.small', { type: 'button', hidden: true, on: { click: async () => {
+    tlSave.disabled = true;
+    try {
+      const blob = await tl.render({ seconds: 15, onProgress: (f) => { tlStatus.textContent = `Making the video… ${Math.round(f * 100)}%`; } });
+      await saveVideo(blob, `piccasso-timelapse-${(app.project.name || 'drawing').replace(/[^\w-]+/g, '-').slice(0, 40)}`);
+      tlStatus.textContent = 'Timelapse saved.';
+    } catch (e) { toast(e.message, { error: true }); tlStatus.textContent = ''; }
+    tlSave.disabled = false;
+  } } }, 'Save timelapse video');
+  const tlBox = h('input', { type: 'checkbox', on: { change: (e) => {
+    if (e.target.checked) { if (tl.count === 0) tl.clear(); tl.start(); tlSave.hidden = true; announce('Recording a timelapse'); }
+    else { tl.stop(); tlSave.hidden = tl.count === 0; }
+    tlTick();
+  } } });
+  const tlTick = () => { tlStatus.textContent = tl.recording ? `Recording… ${tl.count} photos (one every 2 s)` : tl.count ? `${tl.count} photos recorded` : ''; };
+  const tlTimer = setInterval(() => { if (tl.recording) tlTick(); }, 1000);
+  const tlRow = h('div.row', { style: { marginTop: '6px', alignItems: 'center' } },
+    h('label.row', { style: { gap: '6px' } }, tlBox, 'Record timelapse'), tlStatus, tlSave);
+  if (!timelapseSupported()) { tlBox.disabled = true; tlStatus.textContent = 'This browser can\'t make videos.'; }
+
   const camOnly = [];
   const panel = h('div.ar-panel', { role: 'region', 'aria-label': 'Tracing controls' },
     h('div.grid', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' } },
@@ -73,6 +97,7 @@ export async function renderAr(main) {
       h('button.btn.small', { type: 'button', 'aria-pressed': 'false', on: { click: (e) => { calibrating = !calibrating; e.currentTarget.setAttribute('aria-pressed', String(calibrating)); if (calibrating && !paperCorners) paperCorners = defaultPaperCorners(); updateHandles(); place(); if (calibrating) announce('Drag the four round handles onto the corners of your paper'); } } }, 'Calibrate corners'),
       (camOnly[0] = h('button.btn.small', { type: 'button', on: { click: detectNow } }, 'Detect paper'))),
     h('div.grid', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginTop: '6px' } }, lockToggle, (camOnly[1] = followToggle)),
+    tlRow,
     h('details', { style: { marginTop: '6px' } }, h('summary', 'About camera tracing'), h('p.small', LIMITS)));
 
   const xrBtn = h('button.btn.small', { type: 'button', hidden: true, on: { click: startXrMode } }, icon('ar'), 'Start AR');
@@ -259,7 +284,7 @@ export async function renderAr(main) {
         h('button.btn.small', { type: 'button', on: { click: () => nav('locked') } }, 'Use locked reference instead')));
       return false;
     }
-    video.srcObject = stream; video.hidden = false; bgPhoto.hidden = true;
+    video.srcObject = stream; video.hidden = false; bgPhoto.hidden = true; tlRow.hidden = false;
     try { await video.play(); } catch { /* autoplay policies; muted inline usually OK */ }
     mode = 'camera';
     camOnly.forEach((el) => { el.hidden = false; });
@@ -279,7 +304,7 @@ export async function renderAr(main) {
     stopCamera(); stopTracking(); follow = false;
     bgPhoto.src = URL.createObjectURL(f);
     await bgPhoto.decode().catch(() => {});
-    bgPhoto.hidden = false; video.hidden = true; mode = 'photo'; hideMsg();
+    bgPhoto.hidden = false; video.hidden = true; mode = 'photo'; hideMsg(); tl.stop(); tlBox.checked = false; tlRow.hidden = true;
     camOnly[1].hidden = true; camOnly[0].hidden = false;
     setModeStatus();
     toast('Align the guide over your photo. Tip: tap Detect paper.');
@@ -335,6 +360,7 @@ export async function renderAr(main) {
   document.addEventListener('visibilitychange', onVis);
   const ro = new ResizeObserver(() => place()); ro.observe(screen);
   return () => {
+    tl.stop(); clearInterval(tlTimer);
     stopTracking(); stopCamera(); wake.release(); ro.disconnect();
     document.removeEventListener('visibilitychange', onVis);
     if (xr) xr.end();

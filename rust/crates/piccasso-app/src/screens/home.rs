@@ -28,7 +28,7 @@ pub fn onboarding(app: &mut PiccassoApp, ctx: &egui::Context) {
             ] {
                 ui.group(|ui| { ui.set_width(ui.available_width()); ui.strong(t); ui.label(d); });
             }
-            ui.label(RichText::new("Your pictures stay on this computer. Nothing is uploaded unless you turn on the optional AI helper.").weak());
+            ui.label(RichText::new("Your pictures stay on this computer. Nothing is uploaded, and no AI is used.").weak());
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 if primary(ui, "Get started").clicked() { finish(app, ctx); }

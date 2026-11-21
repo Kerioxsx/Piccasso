@@ -4,30 +4,15 @@ import { runInBackground } from '../processing.js';
 import { defaultProgress } from '../../core/project.js';
 import { prepareImage } from '../../core/image.js';
 import { rgbaToCanvas } from '../imageio.js';
-import { aiRewriteSteps, mergeAiSteps } from '../ai.js';
-
-/** Ask once per session before any image leaves the device. */
-async function aiConsent() {
-  if (sessionStorage.getItem('piccasso.aiConsent') === 'yes') return true;
-  const ok = await dialog({
-    title: 'Send this picture to the AI helper?',
-    body: h('div', h('p', 'To write personalised instructions, a smaller copy of your prepared picture and the automatic analysis will be sent to Anthropic\'s Claude API using your API key.'),
-      h('p.small.muted', 'Nothing else is sent. You can turn this off at any time in Settings. If you choose "Keep it on this device", the built-in steps are used.')),
-    buttons: [{ label: 'Keep it on this device', value: false }, { label: 'Send and continue', value: true, primary: true }],
-  });
-  if (ok) sessionStorage.setItem('piccasso.aiConsent', 'yes');
-  return !!ok;
-}
 
 export function renderProcess(main) {
   const p = app.project;
   const bar = h('i');
   const label = h('p.muted', 'Getting started…');
-  let job = null, aiAbort = null, cancelled = false;
+  let job = null, cancelled = false;
   const cancel = () => {
     cancelled = true;
     if (job) job.cancel();
-    if (aiAbort) aiAbort.abort();
     nav('prepare');
   };
   main.appendChild(h('div.processing.card',
@@ -45,22 +30,8 @@ export function renderProcess(main) {
       job = runInBackground(app.src, structuredClone(p.prep), app.shared, { renderMaxDim: 1280, onProgress: setP });
       const res = await job.promise;
       if (cancelled) return;
-      let steps = res.steps;
-      if (app.settings.aiEnabled && app.aiKey && await aiConsent()) {
-        setP(0.97, 'Writing personalised steps with AI');
-        aiAbort = new AbortController();
-        try {
-          const small = rgbaToCanvas(prepareImage(app.src, p.prep, 768));
-          const jpeg = small.toDataURL('image/jpeg', 0.85).split(',')[1];
-          const ai = await aiRewriteSteps({ apiKey: app.aiKey, model: app.settings.aiModel, jpegBase64: jpeg, analysis: res.analysis, steps, signal: aiAbort.signal });
-          steps = mergeAiSteps(steps, ai);
-          p.ai = { used: true, model: ai.model, subject: ai.subject, at: new Date().toISOString() };
-        } catch (e) {
-          if (cancelled) return;
-          p.ai = { used: false };
-          toast('AI helper unavailable: ' + e.message + ' Using the built-in steps.', { error: true, ms: 7000 });
-        }
-      } else p.ai = { used: false };
+      const steps = res.steps;
+      delete p.ai;
       if (cancelled) return;
       const sameSteps = p.steps.length === steps.length && p.steps.every((s, i) => s.kind === steps[i].kind);
       p.analysis = res.analysis;
@@ -97,5 +68,5 @@ export function renderProcess(main) {
     await app.saveProject();
     nav('workspace');
   }
-  return () => { cancelled = true; if (job) job.cancel(); if (aiAbort) aiAbort.abort(); };
+  return () => { cancelled = true; if (job) job.cancel(); };
 }

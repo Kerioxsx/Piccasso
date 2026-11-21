@@ -9,6 +9,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+env:
+  # the version the app reports and compares with the latest release when it checks for updates
+  PICCASSO_VERSION: 0.1.${{ github.run_number }}
 jobs:
   windows:
     runs-on: windows-latest

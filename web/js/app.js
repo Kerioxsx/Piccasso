@@ -1,6 +1,6 @@
 // Piccasso web app entry: loads shared data, registers the service worker and routes screens.
 import { app, applySettings } from './state.js';
-import { toast } from './ui/dom.js';
+import { toast, h } from './ui/dom.js';
 
 const SHARED_FILES = { difficulty: 'difficulty.json', styles: 'styles.json', paper: 'paper.json', stepKinds: 'step-kinds.json', pressure: 'pressure.json', colors: 'colors.json' };
 
@@ -75,12 +75,28 @@ async function start() {
   document.getElementById('nav-back').addEventListener('click', () => { if (history.length > 1) history.back(); else go('home'); });
   window.addEventListener('piccasso:navigate', (e) => go(e.detail));
   router();
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') registerUpdates();
   window.addEventListener('unhandledrejection', (e) => {
     const msg = e.reason && e.reason.message;
     if (msg && msg !== 'cancelled') toast(msg, { error: true });
   });
 }
+/** Offline support plus updates: the service worker is checked on start, when
+ *  the app comes back to the front and every hour; when a new version has been
+ *  installed in the background, offer to switch to it. */
+async function registerUpdates() {
+  let reg;
+  try { reg = await navigator.serviceWorker.register('sw.js'); } catch { return; }
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    const btn = h('button.btn.small', { type: 'button', on: { click: () => { reloading = true; location.reload(); } } }, 'Update now');
+    toast(h('span', 'A new version of Piccasso is ready. ', btn), { ms: 120000 });
+  });
+  const check = () => reg.update().catch(() => {});
+  setInterval(check, 60 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+}
+
 start();

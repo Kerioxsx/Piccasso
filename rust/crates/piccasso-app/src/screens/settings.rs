@@ -46,16 +46,28 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
             });
             ui.group(|ui| {
                 ui.set_width(ui.available_width());
-                ui.strong("Privacy and AI helper");
-                ui.label("By default everything happens on this computer. Pictures and projects are never uploaded.");
-                if cfg!(feature = "ai") {
-                    changed |= ui.checkbox(&mut s.ai_enabled, "Use the AI helper to write personalised steps").changed();
-                    ui.label(RichText::new("When on, a smaller copy of your prepared picture and the automatic analysis are sent to Anthropic's Claude API. The API key is read from the ANTHROPIC_API_KEY environment variable and is never stored by Piccasso.").small().weak());
-                    ui.horizontal(|ui| { ui.label("Model"); changed |= ui.text_edit_singleline(&mut s.ai_model).lost_focus(); });
-                    ui.label(if std::env::var("ANTHROPIC_API_KEY").map_or(false, |k| !k.is_empty()) { "API key: found in environment." } else { "API key: not set (ANTHROPIC_API_KEY)." });
-                } else {
-                    ui.label(RichText::new("The AI helper is not included in this build (enable the `ai` cargo feature). Built-in steps are always available.").small().weak());
-                }
+                ui.strong("Privacy");
+                ui.label("Everything happens on this computer. Pictures and projects are never uploaded. Piccasso uses no AI: every guide comes from image-processing, geometry and computer-vision algorithms.");
+            });
+            ui.group(|ui| {
+                ui.set_width(ui.available_width());
+                ui.strong("Updates");
+                ui.label(format!("This is Piccasso {}.", crate::updater::current_version()));
+                changed |= ui.checkbox(&mut s.check_updates, "Check for a new version when Piccasso starts").changed();
+                ui.label(RichText::new("Asks GitHub for the latest release; nothing about you or your pictures is sent. Updates are only installed when you choose to.").small().weak());
+                use crate::updater::Status;
+                ui.horizontal_wrapped(|ui| {
+                    if ui.add_enabled(!app.updater.busy(), egui::Button::new("Check now")).clicked() { app.update_dismissed = false; app.updater.start_check(); }
+                    match app.updater.status.clone() {
+                        Status::Checking => { ui.spinner(); ui.label("Checking…"); }
+                        Status::UpToDate => { ui.label("You have the latest version."); }
+                        Status::Available(i) => { ui.label(format!("Version {} is available.", i.version)); if ui.button("Install and restart").clicked() { app.updater.start_install(); } }
+                        Status::Downloading(f) => { ui.add(egui::ProgressBar::new(f).desired_width(200.0).show_percentage()); }
+                        Status::Ready => { ui.label("Installed: restart Piccasso to use it."); }
+                        Status::Failed(e) => { ui.label(RichText::new(e).small()); }
+                        Status::Idle => {}
+                    }
+                });
             });
             ui.group(|ui| {
                 ui.set_width(ui.available_width());

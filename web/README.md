@@ -13,7 +13,7 @@ Open http://localhost:8080. For camera, AR and installation on a phone, serve it
 
 ## Structure
 - `js/core/` engine (pure functions, also run under Node tests)
-- `js/ui/` screens and browser services (canvas renderer, gestures, wake lock, WebXR, speech, AI, export)
+- `js/ui/` screens and browser services (canvas renderer, gestures, wake lock, WebXR, speech, export)
 - `js/worker.js` background processing
 - `shared/` copies of `/shared/*.json` (run `node tools/sync-shared.mjs` after editing)
 - `demo/` demo project

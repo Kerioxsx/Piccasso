@@ -64,6 +64,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
     }
     if !matches!(app.screen, Screen::Locked | Screen::Overlay) {
         top_bar(app, ctx);
+        update_banner(app, ctx);
     }
     match app.screen {
         Screen::Onboarding => home::onboarding(app, ctx),
@@ -78,6 +79,33 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
         Screen::Compare => compare::show(app, ctx),
         Screen::AutoDraw => autodraw::show(app, ctx),
     }
+}
+
+/// "A new version is available" bar under the top bar.
+fn update_banner(app: &mut PiccassoApp, ctx: &egui::Context) {
+    use crate::updater::Status;
+    let show = match &app.updater.status { Status::Available(_) => !app.update_dismissed, Status::Downloading(_) | Status::Ready => true, Status::Failed(_) => !app.update_dismissed && app.updater.status != Status::Idle && matches!(app.screen, Screen::Home), _ => false };
+    if !show { return; }
+    egui::TopBottomPanel::top("update-banner").show(ctx, |ui| {
+        ui.horizontal_wrapped(|ui| {
+            match app.updater.status.clone() {
+                Status::Available(i) => {
+                    ui.label(egui::RichText::new(format!("Piccasso {} is available (you have {}).", i.version, crate::updater::current_version())).strong());
+                    if ui.button("Install and restart").clicked() { app.save_project(); app.updater.start_install(); }
+                    if ui.button("Later").clicked() { app.update_dismissed = true; }
+                    if !i.page.is_empty() { ui.hyperlink_to("What's new", i.page); }
+                }
+                Status::Downloading(f) => { ui.label("Downloading the update…"); ui.add(egui::ProgressBar::new(f).desired_width(220.0).show_percentage()); }
+                Status::Ready => {
+                    ui.label(egui::RichText::new("The update is installed.").strong());
+                    #[cfg(feature = "update")]
+                    if ui.button("Restart now").clicked() { app.save_project(); crate::updater::restart(); }
+                }
+                Status::Failed(e) => { ui.label(format!("Update: {e}")); if ui.button("Dismiss").clicked() { app.update_dismissed = true; } }
+                _ => {}
+            }
+        });
+    });
 }
 
 fn processing(app: &mut PiccassoApp, ctx: &egui::Context) {

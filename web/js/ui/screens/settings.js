@@ -1,4 +1,4 @@
-import { app, DEFAULT_SETTINGS } from '../../state.js';
+import { app } from '../../state.js';
 import { h, toggle, segmented, slider, toast, confirmDialog } from '../dom.js';
 import { WakeLock } from '../wakelock.js';
 import { speechSupported } from '../speech.js';
@@ -7,7 +7,6 @@ import { probeAr } from '../../core/capabilities.js';
 export async function renderSettings(main) {
   const s = app.settings;
   const set = (k, v) => { s[k] = v; app.saveSettings(); };
-  const keyInput = h('input', { type: 'password', value: app.aiKey, placeholder: 'sk-ant-…', autocomplete: 'off', 'aria-label': 'Anthropic API key', style: { width: '100%' } });
   const capBox = h('div.small.muted', 'Checking…');
   const storageBox = h('div.small.muted');
 
@@ -30,16 +29,8 @@ export async function renderSettings(main) {
     h('section.card.stack', h('h2', 'Language'),
       h('label.field', 'App language', h('select', { 'aria-label': 'Language', disabled: true }, h('option', 'English'))),
       h('p.small.muted', 'More languages can be added by translating the shared strings files (see the project README).')),
-    h('section.card.stack', h('h2', 'Privacy and AI helper'),
-      h('p', 'By default everything happens on this device: pictures, analysis, projects and comparison photos are never uploaded.'),
-      toggle('Use the AI helper to write personalised steps', s.aiEnabled, (v) => set('aiEnabled', v),
-        'Optional. When on, a smaller copy of your prepared picture and the automatic analysis are sent to Anthropic\'s Claude API with your own API key. You\'ll be asked before anything is sent.'),
-      h('label.field', 'Anthropic API key', keyInput),
-      toggle('Remember the key on this device', s.rememberKey, (v) => { set('rememberKey', v); app.setAiKey(keyInput.value.trim(), v); }, 'Off: the key is forgotten when you close the browser tab.'),
-      h('label.field', 'Model', h('input', { type: 'text', value: s.aiModel, 'aria-label': 'AI model', on: { change: (e) => set('aiModel', e.target.value.trim() || DEFAULT_SETTINGS.aiModel) } })),
-      h('div.row',
-        h('button.btn.small', { type: 'button', on: { click: () => { app.setAiKey(keyInput.value.trim(), s.rememberKey); toast(keyInput.value.trim() ? 'API key saved' : 'API key removed'); } } }, 'Save key'),
-        h('button.btn.small', { type: 'button', on: { click: () => { keyInput.value = ''; app.setAiKey('', false); toast('API key removed'); } } }, 'Remove key'))),
+    h('section.card.stack', h('h2', 'Privacy'),
+      h('p', 'Everything happens on this device: pictures, image processing, projects and comparison photos are never uploaded. Piccasso uses no AI: every guide comes from image-processing, geometry and computer-vision algorithms you can inspect.')),
     h('section.card.stack', h('h2', 'Storage'), storageBox,
       h('div.row',
         h('button.btn.small', { type: 'button', on: { click: async () => { if (navigator.storage && navigator.storage.persist) { const ok = await navigator.storage.persist(); toast(ok ? 'Projects will be kept even when space is low.' : 'The browser did not grant persistent storage.'); } else toast('Not supported in this browser.'); } } }, 'Keep my projects safe'),

@@ -138,10 +138,8 @@ export async function renderWorkspace(main) {
     instrEl.textContent = s.instruction;
     tipEl.replaceChildren(h('strong', 'Tip'), document.createTextNode(s.tip));
     aiEl.innerHTML = '';
-    if (s.source === 'ai') {
-      const t = h('button.btn.small.ghost', { type: 'button', on: { click: () => { const showing = instrEl.dataset.local === '1'; instrEl.textContent = showing ? s.instruction : s.localInstruction; instrEl.dataset.local = showing ? '0' : '1'; t.textContent = showing ? 'Show built-in wording' : 'Show AI wording'; } } }, 'Show built-in wording');
-      aiEl.appendChild(h('p.small.muted', 'Wording written by the AI helper. ', t));
-    }
+    // projects made with the old AI helper show the built-in wording
+    if (s.source === 'ai' && s.localInstruction) instrEl.textContent = s.localInstruction;
     motionText.textContent = s.motion || '';
     motionBox.hidden = !s.motion;
     stopMotion();
