@@ -40,7 +40,9 @@ a { color: var(--accent); }
 .brand { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink); font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; margin-right: auto; min-height: var(--tap); }
 .brand-mark { width: 28px; height: 28px; fill: none; stroke: var(--accent); stroke-width: 2.6; stroke-linecap: round; }
 .brand-mark circle { fill: var(--accent); stroke: none; }
-.topnav { display: flex; gap: 2px; }
+.topnav { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.topnav::-webkit-scrollbar { display: none; }
+.topnav a { flex: none; }
 .topnav a { padding: 10px 12px; border-radius: 10px; color: var(--ink-2); text-decoration: none; min-height: var(--tap); display: flex; align-items: center; }
 .topnav a:hover, .topnav a[aria-current="page"] { background: var(--paper-2); color: var(--ink); }
 body.immersive .topbar { display: none; }
@@ -225,7 +227,7 @@ kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6p
 .glossary dd { margin: 4px 0 0; color: var(--ink-2); }
 .noscript { padding: 20px; }
 @media (max-width: 480px) {
-  .topnav a { padding: 10px 8px; font-size: .92rem; }
+  .topnav a { padding: 10px 6px; font-size: .88rem; }
   .brand span { display: none; }
   .topbar { gap: 4px; }
 }
@@ -267,3 +269,10 @@ a { text-underline-offset: 3px; }
 .studio-sel { position: absolute; border: 2px dashed var(--accent); pointer-events: none; }
 @media (max-width: 760px) { .studio { grid-template-columns: 1fr; } .studio-side { position: static; } .studio-stage { order: -1; } }
 @media print { .studio-side, header, nav { display: none !important; } .studio { display: block; } .studio-stage { border: 0; } .studio-canvas { max-height: none; width: 100%; } }
+
+/* Guides */
+.guides-stage { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px; display: grid; place-items: center; min-height: 300px; overflow: hidden; }
+.guides-canvas { max-width: 100%; max-height: calc(100vh - 140px); height: auto; touch-action: none; cursor: crosshair; }
+.guides-loupe { position: absolute; width: 220px; height: 220px; border-radius: 50%; border: 3px solid var(--ink); box-shadow: 0 6px 20px rgba(0,0,0,.25); pointer-events: none; }
+@media (max-width: 760px) { .guides-stage { order: -1; } .guides-loupe { width: 160px; height: 160px; } }
+@media print { .guides-stage { border: 0; } .guides-canvas { max-height: none; width: 100%; } .guides-loupe { display: none; } }

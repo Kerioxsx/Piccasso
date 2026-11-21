@@ -25,6 +25,7 @@ const routes = {
   library: () => import('./ui/screens/library.js').then((m) => m.renderLibrary),
   settings: () => import('./ui/screens/settings.js').then((m) => m.renderSettings),
   studio: () => import('./ui/screens/studio.js').then((m) => m.renderStudio),
+  guides: () => import('./ui/screens/guides.js').then((m) => m.renderGuides),
 };
 const NEEDS_PROJECT = new Set(['prepare', 'process', 'workspace', 'locked', 'ar', 'compare']);
 
