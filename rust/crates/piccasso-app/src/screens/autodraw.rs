@@ -100,6 +100,7 @@ pub struct AutoDrawState {
     colors: usize,
     fine_detail: bool,
     cal_rx: Option<Receiver<Result<piccasso_core::tooldetect::SizeCurve, String>>>,
+    speed_rx: Option<Receiver<Result<(f64, f64), String>>>,
     cal_log: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
     opacity_mode: OpacityMode,
     tools: Tools,
@@ -119,7 +120,7 @@ pub struct AutoDrawState {
 }
 impl Default for AutoDrawState {
     fn default() -> Self {
-        AutoDrawState { pick: None, tones: 4, brush_px: 6.0, depth: true, coat: 0.25, line_px: 2.0, replica_lines: true, colors: 0, fine_detail: true, cal_rx: None, cal_log: Default::default(), opacity_mode: OpacityMode::Slider, tools: Tools::new_default(), replica: None, replica_rx: None, sim: None,
+        AutoDrawState { pick: None, tones: 4, brush_px: 6.0, depth: true, coat: 0.25, line_px: 2.0, replica_lines: true, colors: 0, fine_detail: true, cal_rx: None, speed_rx: None, cal_log: Default::default(), opacity_mode: OpacityMode::Slider, tools: Tools::new_default(), replica: None, replica_rx: None, sim: None,
             source: 1, detail: 1.5, speed: 2500.0, paths: None, area: None, corner: [None, None], capture: None, run: None, progress: 0.0, status: String::new() }
     }
 }
@@ -261,7 +262,7 @@ fn mouse_location() -> Result<(i32, i32), String> {
 }
 
 /// Pause at corners (ms) so the target program registers every turn.
-pub static DWELL_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(15);
+pub static DWELL_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 /// How many times a second the drawing program reads the mouse (60 is safe for most).
 pub static READ_HZ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(60);
 
@@ -287,11 +288,11 @@ mod pen {
         pub fn click(&mut self, p: (i32, i32)) -> Result<(), String> {
             self.check()?;
             self.go(p.0, p.1);
-            std::thread::sleep(Duration::from_millis(70));
+            std::thread::sleep(Duration::from_millis(40));
             let _ = self.e.button(Button::Left, Direction::Press);
             std::thread::sleep(Duration::from_millis(40));
             let _ = self.e.button(Button::Left, Direction::Release);
-            std::thread::sleep(Duration::from_millis(250));
+            std::thread::sleep(Duration::from_millis(150));
             Ok(())
         }
         /// Press a key combination with the platform's command key (Ctrl, or Cmd on macOS).
@@ -363,9 +364,10 @@ mod pen {
             // period), then the button press is an event it gets at once
             let read = Duration::from_secs_f64(1.2 / hz);
             self.go(pts[0][0].round() as i32, pts[0][1].round() as i32);
-            std::thread::sleep(read.max(self.dwell.min(Duration::from_millis(80))));
+            std::thread::sleep(read.max(Duration::from_millis(2)) + self.dwell.min(Duration::from_millis(80)));
             let _ = self.e.button(Button::Left, Direction::Press);
-            std::thread::sleep(Duration::from_millis(4));
+            let tick = Duration::from_secs_f64((1.2 / hz).min(0.004));
+            std::thread::sleep(tick);
             let t0 = Instant::now();
             let mut last = (i32::MIN, i32::MIN);
             for (k, p) in timed.iter().enumerate() {
@@ -388,7 +390,7 @@ mod pen {
             // pen up: hold the last point for one reading so the stroke reaches its end
             std::thread::sleep(read);
             let _ = self.e.button(Button::Left, Direction::Release);
-            std::thread::sleep(Duration::from_millis(4));
+            std::thread::sleep(tick);
             Ok(())
         }
     }
@@ -448,6 +450,45 @@ pub fn calibrate_size(tools: &Tools, cancel: &AtomicBool, log: &dyn Fn(String)) 
     let c = SizeCurve::new(pts);
     if c.is_empty() { return Err("No test stroke could be seen: check the brush, colour and test area.".into()); }
     Ok(c)
+}
+
+/// Find the fastest setting this program draws exactly: draw a test zigzag and
+/// wave in the test spot, fastest setting first, check it on screen (every
+/// corner reached, no shortcuts), undo it, and step down until one passes.
+/// Returns (mouse readings per second, top speed px/s).
+#[cfg(feature = "autodraw")]
+pub fn measure_speed(tools: &Tools, cancel: &AtomicBool, log: &dyn Fn(String)) -> Result<(f64, f64), String> {
+    use piccasso_core::tooldetect::{score_stroke, speed_test_path, speed_trials};
+    let Some(ta) = tools.test_area else { return Err("Choose an empty test spot first.".into()) };
+    let e = enigo::Enigo::new(&enigo::Settings::default()).map_err(|e| format!("Mouse control is not available: {e}"))?;
+    let mut pen = pen::Pen { e, expected: None, cancel, speed: 1000.0, dwell: Duration::from_millis(DWELL_MS.load(Ordering::Relaxed)) };
+    if tools.can_color() { pen.select_color(tools, [0, 0, 0])?; }
+    if let Some(b) = tools.brush { pen.click(b)?; }
+    let size = 3.0;
+    if let Some(p) = tools.size_point(size) { pen.click(p)?; }
+    if let [Some(z), Some(f)] = tools.slider { pen.click((z.0 + ((f.0 - z.0) as f64 * 0.995) as i32, z.1 + ((f.1 - z.1) as f64 * 0.995) as i32))?; }
+    let path = speed_test_path(ta);
+    let band = tools.size_curve.width_at(tools.size_curve.position_for(size).unwrap_or(0.0)).unwrap_or(size) / 2.0 + 2.5;
+    let old_hz = READ_HZ.load(Ordering::Relaxed);
+    let mut found = None;
+    for (hz, speed) in speed_trials() {
+        let before = crate::screen_pick::capture_screen().ok_or("Can't read the screen here, so the speed can't be tested.")?;
+        READ_HZ.store(hz as u64, Ordering::Relaxed);
+        pen.speed = speed;
+        let r = pen.stroke(&path);
+        std::thread::sleep(Duration::from_millis(200));
+        let after = crate::screen_pick::capture_screen().ok_or("screen capture failed")?;
+        if tools.undo_tests { pen.shortcut('z'); std::thread::sleep(Duration::from_millis(150)); }
+        if let Err(e) = r { READ_HZ.store(old_hz, Ordering::Relaxed); return Err(e); }
+        let (hit, stray) = score_stroke(&before, &after, &path, band);
+        let pass = hit >= 0.985 && stray <= 0.02;
+        log(format!("{hz:.0} readings/s, {speed:.0} px/s: line {:.1}% covered, {:.1}% off the line -> {}", hit * 100.0, stray * 100.0, if pass { "exact" } else { "not exact" }));
+        if pass { found = Some((hz, speed)); break; }
+    }
+    match found {
+        Some(f) => { READ_HZ.store(f.0 as u64, Ordering::Relaxed); Ok(f) }
+        None => { READ_HZ.store(old_hz, Ordering::Relaxed); Err("Even the slowest setting wasn't exact: check the brush (no smoothing/stabiliser) and the test spot.".into()) }
+    }
 }
 
 /// Draw a replica plan (pixel coordinates) at screen origin `org`: before each
@@ -599,6 +640,17 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                 Err(e) => st.status = e,
             }
             st.cal_rx = None;
+            minimize = Some(false);
+        }
+        ctx.request_repaint_after(Duration::from_millis(100));
+    }
+    if let Some(rx) = &st.speed_rx {
+        if let Ok(r) = rx.try_recv() {
+            match r {
+                Ok((hz, sp)) => { st.speed = sp; st.status = format!("This program draws exactly at {sp:.0} px/s (it reads the mouse about {hz:.0} times a second)."); }
+                Err(e) => st.status = e,
+            }
+            st.speed_rx = None;
             minimize = Some(false);
         }
         ctx.request_repaint_after(Duration::from_millis(100));
@@ -848,11 +900,34 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
             }
             ui.add_space(6.0);
             ui.strong("3. Speed and precision");
-            ui.add(egui::Slider::new(&mut st.speed, 300.0..=8000.0).logarithmic(true).text("Speed (px/s)"));
+            ui.add(egui::Slider::new(&mut st.speed, 300.0..=24000.0).logarithmic(true).text("Speed (px/s)"));
+            let mut speed_test = false;
+            ui.horizontal(|ui| {
+                let ok = st.tools.test_area.is_some() && st.run.is_none() && st.speed_rx.is_none() && cfg!(feature = "autodraw");
+                if ui.add_enabled(ok, egui::Button::new("Test this program's speed")).on_hover_text("Draws a small zigzag in the test spot at the fastest setting, checks it on screen, undoes it and steps down until it is exact").clicked() { speed_test = true; }
+                if st.tools.test_area.is_none() { ui.label(RichText::new("(choose a test spot above first)").small().weak()); }
+            });
+            ui.label(RichText::new("Programs that read every mouse movement (most desktop paint programs) can be drawn in 5-20x faster than ones that read it once per screen frame.").small().weak());
+            #[cfg(feature = "autodraw")]
+            if speed_test {
+                let (tx, rx) = channel();
+                let tools = st.tools.clone();
+                let log = st.cal_log.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(900));
+                    let cancel = AtomicBool::new(false);
+                    let _ = tx.send(measure_speed(&tools, &cancel, &|m| { if let Ok(mut l) = log.lock() { l.push(m); } }));
+                });
+                st.speed_rx = Some(rx);
+                st.status = "Testing the drawing speed… move the mouse to stop.".into();
+                minimize = Some(true);
+            }
+            #[cfg(not(feature = "autodraw"))]
+            let _ = speed_test;
             let mut hz = READ_HZ.load(Ordering::Relaxed);
             if ui.add(egui::Slider::new(&mut hz, 30..=240).text("Program reads mouse (times/s)")).on_hover_text("Drawing programs read the mouse 60-240 times a second and join the readings with straight lines. Piccasso moves the mouse continuously and slows down on curves just enough that nothing is cut. Lower this if curves look flattened; raise it for a faster drawing.").changed() { READ_HZ.store(hz, Ordering::Relaxed); }
             let mut dwell = DWELL_MS.load(Ordering::Relaxed);
-            if ui.add(egui::Slider::new(&mut dwell, 5..=80).text("Pen down/up pause (ms)")).on_hover_text("Time given to the program when the pen touches down and lifts.").changed() { DWELL_MS.store(dwell, Ordering::Relaxed); }
+            if ui.add(egui::Slider::new(&mut dwell, 0..=80).text("Extra pause at pen down (ms)")).on_hover_text("Extra time for programs that miss the start of strokes. 0 is right for most.").changed() { DWELL_MS.store(dwell, Ordering::Relaxed); }
             if let Some(ar) = st.area {
                 let scale = fit_into(ar, aspect)[3];
                 let secs = (down * scale) / st.speed + paths.len() as f64 * 0.03 + (up * scale) * 0.0;

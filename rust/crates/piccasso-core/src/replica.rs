@@ -449,7 +449,7 @@ fn plan_bands(g: &Gray, o: &ReplicaOptions) -> (Vec<ToneLayer>, Gray) {
 /// area reaches one brush radius under the darker colours painted after it, so
 /// neighbouring colours meet with no white gaps; small parts get the line brush.
 fn plan_color(img: &Rgba, ink: &[crate::lines::InkLine], tw: usize, th: usize, o: &ReplicaOptions, outline: Option<&Rgba>) -> ReplicaPlan {
-    let small = resize_box(img, tw, th);
+    let small = descreen(&resize_box(img, tw, th));
     // paper level from the picture itself (photos of paper are never pure white)
     let mut lum: Vec<u8> = small.data.chunks_exact(4).map(|p| ((77 * p[0] as u32 + 150 * p[1] as u32 + 29 * p[2] as u32) >> 8) as u8).collect();
     lum.sort_unstable();
@@ -494,6 +494,15 @@ fn plan_color(img: &Rgba, ink: &[crate::lines::InkLine], tw: usize, th: usize, o
         for i in 0..n { if cov[i] != 0 { target.data[i * 4..i * 4 + 3].copy_from_slice(&c); } }
         let coverage = cov.iter().filter(|&&v| v != 0).count() as f64 / n as f64;
         layers.push(ToneLayer { tone: r, gray: l(c).round() as u8, opacity: 1.0, paths, coverage, brush, fine: true, rgb: Some(c) });
+    }
+    // fewer pen lifts: a paint may travel over its own area and over area that a
+    // darker paint covers later (paints go on lightest first, opaque)
+    for l in layers.iter_mut() {
+        let r = l.tone;
+        let safe0: Vec<u8> = (0..n).map(|i| (assign[i] != usize::MAX && rank[assign[i]] >= r) as u8).collect();
+        let er = ((l.brush / 2.0).floor() as usize).saturating_sub(0).min(4);
+        let safe = if er > 0 { erode(&safe0, tw, th, er) } else { safe0 };
+        l.paths = chain_strokes(std::mem::take(&mut l.paths), &safe, tw, th, (l.brush * 6.0).max(10.0));
     }
     let tg = to_gray(&target);
     ReplicaPlan { width: tw, height: th, layers, lines: replica_lines(outline, tw, th, o), target: tg, target_rgb: Some(target) }
@@ -602,4 +611,151 @@ pub fn plan_stats(plan: &ReplicaPlan) -> (usize, f64) {
         for s in p.windows(2) { len += (s[1][0] - s[0][0]).hypot(s[1][1] - s[0][1]); }
     }
     (n, len)
+}
+
+/// Join strokes into as few pen-down strokes as possible. The pen may travel
+/// between two strokes only through `safe` pixels (ones this paint may touch:
+/// its own area, or area a darker paint covers later), first by a straight
+/// line, else by a short path found inside the safe area. Links longer than
+/// `max_link` px lift the pen instead.
+pub fn chain_strokes(paths: Vec<Path>, safe: &[u8], w: usize, h: usize, max_link: f64) -> Vec<Path> {
+    let n = paths.len();
+    if n < 2 { return paths; }
+    let cell = 16.0;
+    let (gw, gh) = ((w as f64 / cell).ceil() as usize + 1, (h as f64 / cell).ceil() as usize + 1);
+    let key = |p: [f64; 2]| -> usize { let gx = ((p[0] / cell).max(0.0) as usize).min(gw - 1); let gy = ((p[1] / cell).max(0.0) as usize).min(gh - 1); gy * gw + gx };
+    // each stroke has two endpoints in the grid (index*2 = start, index*2+1 = end)
+    let mut grid: Vec<Vec<usize>> = vec![Vec::new(); gw * gh];
+    for (i, p) in paths.iter().enumerate() { grid[key(p[0])].push(i * 2); grid[key(*p.last().unwrap())].push(i * 2 + 1); }
+    let mut used = vec![false; n];
+    let ok = |x: f64, y: f64| -> bool { let (xi, yi) = (x.floor() as i64, y.floor() as i64); xi >= 0 && yi >= 0 && (xi as usize) < w && (yi as usize) < h && safe[yi as usize * w + xi as usize] != 0 };
+    let straight = |a: [f64; 2], b: [f64; 2]| -> bool {
+        let d = (b[0] - a[0]).hypot(b[1] - a[1]);
+        let k = (d / 0.5).ceil().max(1.0) as usize;
+        (0..=k).all(|i| { let t = i as f64 / k as f64; ok(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t) })
+    };
+    // short path through the safe area inside the box around both points
+    let bfs = |a: [f64; 2], b: [f64; 2]| -> Option<Vec<[f64; 2]>> {
+        let m = 6i64;
+        let (x0, y0) = ((a[0].min(b[0]) as i64 - m).max(0), (a[1].min(b[1]) as i64 - m).max(0));
+        let (x1, y1) = ((a[0].max(b[0]) as i64 + m).min(w as i64 - 1), (a[1].max(b[1]) as i64 + m).min(h as i64 - 1));
+        let (bw, bh) = ((x1 - x0 + 1) as usize, (y1 - y0 + 1) as usize);
+        let idx = |x: i64, y: i64| ((y - y0) as usize) * bw + (x - x0) as usize;
+        let (sx, sy, tx, ty) = (a[0] as i64, a[1] as i64, b[0] as i64, b[1] as i64);
+        if !ok(a[0], a[1]) || !ok(b[0], b[1]) { return None; }
+        let mut prev = vec![usize::MAX; bw * bh];
+        let mut q = std::collections::VecDeque::new();
+        prev[idx(sx, sy)] = idx(sx, sy);
+        q.push_back((sx, sy));
+        while let Some((x, y)) = q.pop_front() {
+            if x == tx && y == ty {
+                let mut out = vec![b];
+                let mut i = idx(x, y);
+                while prev[i] != i { i = prev[i]; out.push([(i % bw) as f64 + x0 as f64 + 0.5, (i / bw) as f64 + y0 as f64 + 0.5]); }
+                out.reverse();
+                out[0] = a;
+                // a connector only has to stay in the safe area: make it as few straight
+                // pieces as possible (every corner costs a pause)
+                for eps in [3.0, 2.0, 1.2, 0.7] {
+                    let simple = douglas_peucker(&out, eps, false);
+                    if simple.windows(2).all(|s| { let d = (s[1][0] - s[0][0]).hypot(s[1][1] - s[0][1]); let k = (d / 0.5).ceil().max(1.0) as usize;
+                        (0..=k).all(|i| { let t = i as f64 / k as f64; let (x, y) = (s[0][0] + (s[1][0] - s[0][0]) * t, s[0][1] + (s[1][1] - s[0][1]) * t); x >= 0.0 && y >= 0.0 && (x as usize) < w && (y as usize) < h && safe[y as usize * w + x as usize] != 0 }) }) {
+                        return Some(simple);
+                    }
+                }
+                return None;
+            }
+            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)] {
+                let (nx, ny) = (x + dx, y + dy);
+                if nx < x0 || ny < y0 || nx > x1 || ny > y1 { continue; }
+                if safe[ny as usize * w + nx as usize] == 0 || prev[idx(nx, ny)] != usize::MAX { continue; }
+                prev[idx(nx, ny)] = idx(x, y);
+                q.push_back((nx, ny));
+            }
+        }
+        None
+    };
+    let mut out: Vec<Path> = Vec::new();
+    let mut cur: Path = Vec::new();
+    let mut pos = [0.0, 0.0];
+    let mut left = n;
+    while left > 0 {
+        // nearest unused endpoints around `pos`, closest first
+        let mut cands: Vec<(f64, usize)> = Vec::new();
+        let r = ((max_link / cell).ceil() as i64).max(1);
+        let (cx, cy) = ((pos[0] / cell) as i64, (pos[1] / cell) as i64);
+        for gy in (cy - r).max(0)..=(cy + r).min(gh as i64 - 1) {
+            for gx in (cx - r).max(0)..=(cx + r).min(gw as i64 - 1) {
+                for &e in &grid[gy as usize * gw + gx as usize] {
+                    if used[e / 2] { continue; }
+                    let p = &paths[e / 2];
+                    let q = if e % 2 == 0 { p[0] } else { *p.last().unwrap() };
+                    let d = (q[0] - pos[0]).hypot(q[1] - pos[1]);
+                    if d <= max_link { cands.push((d, e)); }
+                }
+            }
+        }
+        cands.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        let mut linked = None;
+        if !cur.is_empty() {
+            for &(_, e) in cands.iter().take(6) {
+                let p = &paths[e / 2];
+                let q = if e % 2 == 0 { p[0] } else { *p.last().unwrap() };
+                if straight(pos, q) { linked = Some((e, vec![])); break; }
+                if let Some(c) = bfs(pos, q) { if c.len() <= 4 { linked = Some((e, c)); break; } }
+            }
+        }
+        let e = match linked {
+            Some((e, conn)) => { cur.extend(conn.into_iter().skip(1)); e }
+            None => {
+                if !cur.is_empty() { out.push(std::mem::take(&mut cur)); }
+                // start a new stroke at the nearest remaining endpoint
+                match cands.first() {
+                    Some(&(_, e)) => e,
+                    None => { let i = (0..n).find(|&i| !used[i]).unwrap(); i * 2 }
+                }
+            }
+        };
+        let i = e / 2;
+        used[i] = true;
+        left -= 1;
+        let mut p = paths[i].clone();
+        if e % 2 == 1 { p.reverse(); }
+        pos = *p.last().unwrap();
+        cur.extend(p);
+    }
+    if !cur.is_empty() { out.push(cur); }
+    out
+}
+
+/// Printed screentone (fields of tiny dots) is drawn as the gray it stands for:
+/// where isolated specks are dense, the picture is replaced by its local average.
+pub fn descreen(img: &Rgba) -> Rgba {
+    let (w, h) = (img.width, img.height);
+    let g = to_gray(img);
+    // specks: dark-ish pixels in components of at most 6 px
+    let dark: Vec<u8> = g.data.iter().map(|&v| (v < 200) as u8).collect();
+    let (labels, comps) = crate::imgproc::label_components(&dark, w, h);
+    let speck: Vec<f64> = labels.iter().map(|&l| if l > 0 && comps[l as usize - 1].area <= 6 { 1.0 } else { 0.0 }).collect();
+    // speck density and box average over a 9x9 window (summed-area tables)
+    let sat = |v: &dyn Fn(usize) -> f64| {
+        let mut s = vec![0f64; (w + 1) * (h + 1)];
+        for y in 0..h { for x in 0..w { s[(y + 1) * (w + 1) + x + 1] = v(y * w + x) + s[y * (w + 1) + x + 1] + s[(y + 1) * (w + 1) + x] - s[y * (w + 1) + x]; } }
+        s
+    };
+    let box_sum = |s: &[f64], x: usize, y: usize, r: usize| {
+        let (x0, y0, x1, y1) = (x.saturating_sub(r), y.saturating_sub(r), (x + r + 1).min(w), (y + r + 1).min(h));
+        (s[y1 * (w + 1) + x1] - s[y0 * (w + 1) + x1] - s[y1 * (w + 1) + x0] + s[y0 * (w + 1) + x0], ((x1 - x0) * (y1 - y0)) as f64)
+    };
+    let ds = sat(&|i| speck[i]);
+    let ch: Vec<Vec<f64>> = (0..3).map(|k| sat(&|i| img.data[i * 4 + k] as f64)).collect();
+    let mut out = img.clone();
+    for y in 0..h {
+        for x in 0..w {
+            let (n, a) = box_sum(&ds, x, y, 4);
+            if n / a < 0.08 { continue; }
+            for k in 0..3 { let (s, a) = box_sum(&ch[k], x, y, 2); out.data[(y * w + x) * 4 + k] = (s / a).round() as u8; }
+        }
+    }
+    out
 }

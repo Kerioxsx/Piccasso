@@ -35,6 +35,11 @@ Both apps include a **demo project** (pear and mug, painted procedurally by `too
 
 More detail: [web/README.md](web/README.md) · [rust/README.md](rust/README.md) · [docs/](docs/).
 
+## Website and downloads (GitHub)
+
+- **Website**: `.github/workflows/pages.yml` publishes `site/` at `https://<owner>.github.io/<repo>/` and the web app at `…/app/` on every push to `main` (enable Pages → "GitHub Actions" in the repository settings once).
+- **PC app**: `.github/workflows/release.yml` builds the Rust desktop app for Windows (`Piccasso-windows.zip` with `piccasso.exe`), macOS and Linux on every push that changes `rust/` and publishes a release; the website's download buttons always point at the latest one.
+
 ## What it does
 
 1. **Import** a picture (file, camera capture, or the demo); crop with aspect presets (free, original, square, 3:4, 4:3, paper), rotate, mirror, flip; brightness and contrast.

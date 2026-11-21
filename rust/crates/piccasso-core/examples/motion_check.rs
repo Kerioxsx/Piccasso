@@ -57,16 +57,5 @@ fn main() {
         else { for k in 0..3 { img.data[i * 4 + k] = out[i * 3 + k] as u8; } }
     }
     println!("pixels differing from the plan by > 60: {bad} of {}", w * h);
-    let l = &plan.layers[14];
-    let p = &l.paths[0];
-    let t = timed_points(p, &lim, 0.001);
-    let samples: Vec<[f64; 2]> = std::iter::once(t[0]).chain(t.iter().skip(5).step_by(16).cloned()).collect();
-    for (x, y) in [(130usize, 250usize), (140, 251)] { let i = y * w + x; println!("out {:?} sim {:?}", &out[i*3..i*3+3], &sim.data[i*4..i*4+3]); println!("pixel {x},{y}: plan layer {} (fine {}, rgb {:?}), replay layer {}", last_p[i], plan.layers[last_p[i]].fine, plan.layers[last_p[i]].rgb, last_r[i]); }
-    for k in 2188..2200 { println!("v{k}: ({:.2},{:.2})", p[k][0], p[k][1]); }
-    let mut u: Vec<[f64; 2]> = vec![];
-    for &q in p.iter() { if u.last().map_or(true, |r: &[f64; 2]| (r[0]-q[0]).hypot(r[1]-q[1]) > 0.05) { u.push(q); } }
-    let (v, c) = vertex_speeds(&u, &lim);
-    for k in 0..u.len() { if (u[k][1]-251.5).abs() < 0.01 && (u[k][0]-108.5).abs() < 0.01 { for j in k-3..k+3 { println!("u{j}: ({:.2},{:.2}) v {:.0} corner {}", u[j][0], u[j][1], v[j], c[j]); } } }
-    for (k, q) in samples.iter().enumerate() { if (q[1] - 251.0).abs() < 3.0 && q[0] > 90.0 && q[0] < 180.0 { println!("sample {k}: ({:.1},{:.1})", q[0], q[1]); } }
     std::fs::write(&a[5], piccasso_core::encode_png(&img).unwrap()).unwrap();
 }

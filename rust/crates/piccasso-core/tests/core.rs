@@ -490,3 +490,28 @@ fn soft_edges_count_by_ink() {
     let wdt = stroke_width(&Rgba { width: w, height: h, data: d }, 10, 11, [255, 255, 255], [0, 0, 0], 20);
     assert!((wdt - 3.6).abs() < 0.1, "{wdt}");
 }
+
+#[test]
+fn speed_test_scoring_spots_cut_corners() {
+    use piccasso_core::tooldetect::*;
+    use piccasso_core::imgproc::Rgba;
+    let a = [0, 0, 240, 160];
+    let path = speed_test_path(a);
+    let blank = Rgba { width: 260, height: 180, data: vec![255; 260 * 180 * 4] };
+    let draw = |pts: &[[f64; 2]]| {
+        let mut img = blank.clone();
+        for q in piccasso_core::strokes::densify(pts, 0.3) {
+            for dy in -1..=1 { for dx in -1..=1 {
+                let (x, y) = (q[0] as i32 + dx, q[1] as i32 + dy);
+                if x >= 0 && y >= 0 && x < 260 && y < 180 { let i = (y as usize * 260 + x as usize) * 4; img.data[i] = 0; img.data[i + 1] = 0; img.data[i + 2] = 0; }
+            } }
+        }
+        img
+    };
+    let (hit, stray) = score_stroke(&blank, &draw(&path), &path, 3.0);
+    assert!(hit > 0.99 && stray < 0.01, "exact: {hit} {stray}");
+    // a program that read the mouse too rarely: every other point lost
+    let cut: Vec<[f64; 2]> = path.iter().step_by(2).cloned().collect();
+    let (hit2, _) = score_stroke(&blank, &draw(&cut), &path, 3.0);
+    assert!(hit2 < 0.97, "cut corners not noticed: {hit2}");
+}

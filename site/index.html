@@ -133,6 +133,8 @@ pre { margin: 0; background: var(--graphite); color: var(--paper); padding: 16px
 footer { border-top: 1px solid var(--rule); padding-block: 40px 56px; color: var(--smudge); font-size: 15px; }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: baseline; }
 footer .note { color: var(--graphite); }
+  .dl{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+  details{margin-top:12px} details summary{cursor:pointer;color:var(--lead)}
 </style>
 </head>
 <body>
@@ -375,17 +377,28 @@ footer .note { color: var(--graphite); }
       <p style="color:var(--lead); max-width:60ch; margin-top:18px">Your pictures stay on your device. Nothing is uploaded unless you switch on the optional AI helper and use your own key.</p>
       <div class="run">
         <div class="card">
-          <h3>Web app</h3>
-          <p>Serve the <b>web</b> folder from any static host, then open it and choose “Install” in your browser for an app icon and offline use. Camera features need https.</p>
-          <pre id="cmd-web">python3 -m http.server 8080 -d web</pre>
-          <button class="copy-btn" type="button" data-copy="cmd-web">Copy command</button>
-        </div>
-        <div class="card">
-          <h3>Desktop app</h3>
-          <p>Needs Rust 1.80 or newer. Auto-draw and the phone link are included by default; add <b>--features camera</b> for a webcam.</p>
+          <h3>Desktop app (PC)</h3>
+          <p>Guided steps, locked reference, phone camera as a projector, and auto-draw into any drawing program with your real mouse: shading, colour and every line.</p>
+          <p class="dl">
+            <a class="btn solid" data-dl="Piccasso-windows.zip" href="#run">Download for Windows</a>
+            <a class="btn" data-dl="Piccasso-macos.zip" href="#run">macOS</a>
+            <a class="btn" data-dl="Piccasso-linux.tar.gz" href="#run">Linux</a>
+          </p>
+          <p style="font-size:.9rem;color:var(--lead)">Windows: unzip and run <b>piccasso.exe</b> (choose "More info → Run anyway" if SmartScreen asks; the app isn't code-signed). To draw into a program running as administrator, run Piccasso as administrator too. macOS: allow Accessibility (mouse) and Screen Recording (colour detection) when asked.</p>
+          <details><summary>Build it yourself</summary>
           <pre id="cmd-rust">cd rust
 cargo run --release -p piccasso-app</pre>
           <button class="copy-btn" type="button" data-copy="cmd-rust">Copy commands</button>
+          </details>
+        </div>
+        <div class="card">
+          <h3>Web app (phone, tablet, any browser)</h3>
+          <p>Steps, shading and colour guides, locked reference that keeps the screen awake, and camera tracing. Choose “Install” or “Add to Home Screen” for an app icon and offline use.</p>
+          <p class="dl"><a class="btn solid" href="app/">Open the web app</a></p>
+          <details><summary>Host it yourself</summary>
+          <pre id="cmd-web">python3 -m http.server 8080 -d web</pre>
+          <button class="copy-btn" type="button" data-copy="cmd-web">Copy command</button>
+          </details>
         </div>
       </div>
     </div>
@@ -400,6 +413,17 @@ cargo run --release -p piccasso-app</pre>
   </div>
 </footer>
 
+<script>
+// Download buttons point at the latest GitHub release of the repository this
+// site is published from (owner.github.io/repo/), so they never go stale.
+(() => {
+  const host = location.hostname;
+  const repo = location.pathname.split('/').filter(Boolean)[0];
+  if (!host.endsWith('.github.io') || !repo) return;
+  const base = `https://github.com/${host.split('.')[0]}/${repo}/releases/latest/download/`;
+  document.querySelectorAll('[data-dl]').forEach(a => { a.href = base + a.dataset.dl; });
+})();
+</script>
 <script>
 (() => {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;

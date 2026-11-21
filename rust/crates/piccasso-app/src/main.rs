@@ -100,9 +100,18 @@ fn dev_commands() -> bool {
                 Err(e) => { println!("calibration failed: {e}"); return true; }
             }
         }
+        // PICCASSO_SPEEDTEST=1: find the fastest exact setting first (uses the test spot)
+        let mut speed = env_f("PICCASSO_SPEED").unwrap_or(6000.0);
+        if std::env::var("PICCASSO_SPEEDTEST").is_ok() {
+            let cancel = std::sync::atomic::AtomicBool::new(false);
+            match screens::autodraw::measure_speed(&tools, &cancel, &|m| println!("  {m}")) {
+                Ok((hz, sp)) => { println!("speed: {sp:.0} px/s at {hz:.0} readings/s"); speed = sp; }
+                Err(e) => { println!("speed test failed: {e}"); return true; }
+            }
+        }
         let (tx, rx) = std::sync::mpsc::channel();
         let t0 = std::time::Instant::now();
-        screens::autodraw::run_replica(plan, [f[0].round(), f[1].round()], tools, screens::autodraw::OpacityMode::Slider, env_f("PICCASSO_SPEED").unwrap_or(6000.0), std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)), tx);
+        screens::autodraw::run_replica(plan, [f[0].round(), f[1].round()], tools, screens::autodraw::OpacityMode::Slider, speed, std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)), tx);
         for m in rx.try_iter() { if let screens::autodraw::Msg::Done(s) = m { println!("{s} ({:.1}s)", t0.elapsed().as_secs_f64()); } }
         return true;
     }

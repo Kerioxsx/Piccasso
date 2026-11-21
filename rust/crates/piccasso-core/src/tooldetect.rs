@@ -229,3 +229,62 @@ impl SizeCurve {
 /// Slider positions to test when calibrating (denser at the small end, where
 /// most sliders put the useful sizes).
 pub fn calibration_positions() -> Vec<f64> { vec![0.0, 0.04, 0.1, 0.18, 0.3, 0.45, 0.65, 0.85, 1.0] }
+
+/// Test pattern for measuring how fast a program can be drawn in: a zigzag
+/// with sharp corners followed by a tight wave, inside `a` (screen box).
+pub fn speed_test_path(a: Area) -> Vec<[f64; 2]> {
+    let (x0, y0, w, h) = (a[0] as f64 + 10.0, a[1] as f64 + 10.0, a[2] as f64 - 20.0, a[3] as f64 - 20.0);
+    let mut p = Vec::new();
+    let teeth = 6;
+    for i in 0..=teeth { p.push([x0 + w * 0.55 * i as f64 / teeth as f64, if i % 2 == 0 { y0 + h } else { y0 }]); }
+    // a wave of radius ≈ h/6 (tight curves)
+    let (wx, ww) = (x0 + w * 0.6, w * 0.4);
+    for k in 1..=60 {
+        let t = k as f64 / 60.0;
+        p.push([wx + ww * t, y0 + h * 0.5 - (t * std::f64::consts::TAU * 2.0).sin() * h * 0.4]);
+    }
+    p
+}
+
+/// How well a test stroke came out, from screenshots before and after it:
+/// (share of the intended centre line that got ink, share of the new ink that
+/// lies farther than `band` px from the intended line).
+pub fn score_stroke(before: &Rgba, after: &Rgba, path: &[[f64; 2]], band: f64) -> (f64, f64) {
+    let changed = |x: i32, y: i32| -> bool {
+        if x < 0 || y < 0 || x >= after.width as i32 || y >= after.height as i32 { return false; }
+        let (a, b) = (px(after, x, y), px(before, x, y));
+        (0..3).map(|k| (a[k] - b[k]).abs()).fold(0.0, f64::max) > 50.0
+    };
+    let dense = crate::strokes::densify(path, 1.0);
+    // centre line: count a point as inked if any pixel within 1 px changed
+    let hit = dense.iter().filter(|q| {
+        let (x, y) = (q[0].round() as i32, q[1].round() as i32);
+        (-1..=1).any(|dy| (-1..=1).any(|dx| changed(x + dx, y + dy)))
+    }).count() as f64 / dense.len().max(1) as f64;
+    // stray ink: new ink far from every intended segment
+    let (mut minx, mut miny, mut maxx, mut maxy) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
+    for q in path { minx = minx.min(q[0]); miny = miny.min(q[1]); maxx = maxx.max(q[0]); maxy = maxy.max(q[1]); }
+    let m = band + 12.0;
+    let seg_d = |p: [f64; 2], a: [f64; 2], b: [f64; 2]| {
+        let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+        let l2 = dx * dx + dy * dy;
+        let t = if l2 < 1e-12 { 0.0 } else { (((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2).clamp(0.0, 1.0) };
+        (p[0] - a[0] - t * dx).hypot(p[1] - a[1] - t * dy)
+    };
+    let (mut ink, mut stray) = (0usize, 0usize);
+    for y in (miny - m) as i32..=(maxy + m) as i32 {
+        for x in (minx - m) as i32..=(maxx + m) as i32 {
+            if !changed(x, y) { continue; }
+            ink += 1;
+            let p = [x as f64 + 0.5, y as f64 + 0.5];
+            if path.windows(2).all(|s| seg_d(p, s[0], s[1]) > band) { stray += 1; }
+        }
+    }
+    (hit, if ink == 0 { 1.0 } else { stray as f64 / ink as f64 })
+}
+
+/// Settings tried by the speed test, fastest first: (mouse readings per second
+/// assumed, top speed in px/s).
+pub fn speed_trials() -> Vec<(f64, f64)> {
+    vec![(1000.0, 24000.0), (500.0, 16000.0), (250.0, 10000.0), (125.0, 7000.0), (60.0, 5000.0), (30.0, 3000.0)]
+}
