@@ -67,9 +67,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: ubuntu-latest
+          # built on an older Ubuntu so the app runs on any Linux with glibc 2.35+
+          # (Ubuntu 22.04+, Debian 12+, Fedora 36+, Raspberry Pi OS bookworm+)
+          - runner: ubuntu-22.04
             asset: Piccasso-linux.tar.gz
-          - runner: ubuntu-24.04-arm
+          - runner: ubuntu-22.04-arm
             asset: Piccasso-linux-arm64.tar.gz
     runs-on: ${{ matrix.runner }}
     steps:
