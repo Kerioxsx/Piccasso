@@ -1,0 +1,662 @@
+{
+ "version": 1,
+ "categories": [
+  {
+   "id": "shapes",
+   "title": "Basic shapes",
+   "summary": "Everything you draw is built from circles, boxes and cylinders."
+  },
+  {
+   "id": "lines",
+   "title": "Lines and contours",
+   "summary": "Confident lines and outlines that describe form."
+  },
+  {
+   "id": "proportion",
+   "title": "Proportions",
+   "summary": "Measuring sizes and distances by eye."
+  },
+  {
+   "id": "perspective",
+   "title": "Perspective",
+   "summary": "Making flat paper look deep."
+  },
+  {
+   "id": "light",
+   "title": "Light and shadow",
+   "summary": "Where light falls and where shadows go."
+  },
+  {
+   "id": "shading",
+   "title": "Shading",
+   "summary": "Building smooth values with a pencil."
+  },
+  {
+   "id": "texture",
+   "title": "Texture",
+   "summary": "Making surfaces feel soft, rough, shiny or furry."
+  },
+  {
+   "id": "composition",
+   "title": "Composition",
+   "summary": "Placing things on the page so the drawing reads well."
+  },
+  {
+   "id": "figure",
+   "title": "Anatomy and gesture",
+   "summary": "Drawing people that move and stand believably."
+  },
+  {
+   "id": "advanced",
+   "title": "Advanced techniques",
+   "summary": "Putting it all together in finished drawings."
+  }
+ ],
+ "lessons": [
+  {
+   "id": "shapes-circles",
+   "cat": "shapes",
+   "level": "beginner",
+   "minutes": 10,
+   "title": "Circles and ellipses",
+   "goal": "Draw round shapes from the shoulder, not the fingers.",
+   "steps": [
+    "Fill a page with circles the size of a coin, then the size of your palm. Move your whole arm.",
+    "Ghost each circle first: circle the pencil above the paper 2–3 times, then touch down.",
+    "Draw ellipses inside boxes: the long axis always runs through the middle.",
+    "Circle your best three. Notice which size is easiest."
+   ],
+   "tool": null,
+   "requires": []
+  },
+  {
+   "id": "shapes-boxes",
+   "cat": "shapes",
+   "level": "beginner",
+   "minutes": 15,
+   "title": "Boxes in space",
+   "goal": "Draw a cube that looks solid from any angle.",
+   "steps": [
+    "Open the 3D sandbox and turn a cube slowly. Watch how its three visible faces change.",
+    "Draw the cube from three different angles you set in the sandbox.",
+    "Draw the hidden back edges lightly: they keep the box honest.",
+    "Compare: do parallel edges in your drawing lean the same way as in the sandbox?"
+   ],
+   "tool": {
+    "route": "sandbox",
+    "label": "Open the 3D sandbox"
+   },
+   "requires": [
+    "shapes-circles"
+   ]
+  },
+  {
+   "id": "shapes-cylinders",
+   "cat": "shapes",
+   "level": "beginner",
+   "minutes": 15,
+   "title": "Cylinders, cones and spheres",
+   "goal": "Turn circles and boxes into round solids.",
+   "steps": [
+    "In the 3D sandbox, look at a cylinder from above and from the side. The top ellipse gets thinner as you go down to eye level.",
+    "Draw five cylinders: the further below your eye, the rounder their top ellipse.",
+    "Draw a cone and a sphere with the same light; add a simple shadow.",
+    "Build a mug or a bottle from these shapes."
+   ],
+   "tool": {
+    "route": "sandbox",
+    "label": "Open the 3D sandbox"
+   },
+   "requires": [
+    "shapes-boxes"
+   ]
+  },
+  {
+   "id": "lines-confident",
+   "cat": "lines",
+   "level": "beginner",
+   "minutes": 10,
+   "title": "Confident lines",
+   "goal": "Draw straight lines in one stroke.",
+   "steps": [
+    "Mark two dots. Ghost the movement three times, then draw the line in one go.",
+    "Fill a page: short lines, long lines, all directions.",
+    "Don't go over a line twice; draw a new one beside it instead.",
+    "Circle your straightest lines."
+   ],
+   "tool": null,
+   "requires": []
+  },
+  {
+   "id": "lines-weight",
+   "cat": "lines",
+   "level": "beginner",
+   "minutes": 15,
+   "title": "Line weight",
+   "goal": "Use thin and thick lines to show depth.",
+   "steps": [
+    "Open the line-weight chart in Guides and copy each line with your pencils.",
+    "Draw a box: thin lines on the lit side, thicker lines where it touches the table and in shadow.",
+    "Draw a near and a far object: thicker outlines for the near one.",
+    "Compare with a version using one weight only."
+   ],
+   "tool": {
+    "route": "guides",
+    "label": "Open the line-weight chart"
+   },
+   "requires": [
+    "lines-confident"
+   ]
+  },
+  {
+   "id": "lines-contour",
+   "cat": "lines",
+   "level": "intermediate",
+   "minutes": 20,
+   "title": "Contour drawing",
+   "goal": "Follow edges slowly and accurately.",
+   "steps": [
+    "In the Studio, convert a photo to Contours and look at the main edges.",
+    "Draw the object's outer contour slowly, eyes on the object more than the paper.",
+    "Add the inner contours: folds, overlaps, edges of shadows.",
+    "Overlay your drawing with the Compare screen to check."
+   ],
+   "tool": {
+    "route": "studio",
+    "label": "Open the Studio"
+   },
+   "requires": [
+    "lines-weight"
+   ]
+  },
+  {
+   "id": "proportion-measure",
+   "cat": "proportion",
+   "level": "beginner",
+   "minutes": 15,
+   "title": "Measuring with your pencil",
+   "goal": "Compare sizes by eye and with a pencil held at arm's length.",
+   "steps": [
+    "Hold the pencil at arm's length, close one eye, and measure the height of an object with the pencil tip and your thumb.",
+    "Compare: how many of those heights fit in its width?",
+    "Mark the height and width on paper first, then draw inside those marks.",
+    "Check with the grid in Guides or Prepare."
+   ],
+   "tool": {
+    "route": "guides",
+    "label": "Open Guides"
+   },
+   "requires": []
+  },
+  {
+   "id": "proportion-face",
+   "cat": "proportion",
+   "level": "intermediate",
+   "minutes": 25,
+   "title": "Face proportions",
+   "goal": "Place eyes, nose and mouth with the classical canon.",
+   "steps": [
+    "Open Face proportions in Guides over a portrait photo and move the box onto the face.",
+    "Check the rules: eyes halfway down, five eye-widths across, nose base and chin in thirds.",
+    "Draw the head oval and the guide lines lightly, then place the features.",
+    "Note where this face differs from the canon: that's what makes it this person."
+   ],
+   "tool": {
+    "route": "guides",
+    "label": "Open face proportions"
+   },
+   "requires": [
+    "proportion-measure"
+   ]
+  },
+  {
+   "id": "proportion-figure",
+   "cat": "proportion",
+   "level": "intermediate",
+   "minutes": 25,
+   "title": "Figure proportions",
+   "goal": "Draw a standing figure about 8 heads tall.",
+   "steps": [
+    "Open Figure proportions in Guides; mark 8 equal head units down the page.",
+    "Place the landmarks: nipples at 2, navel at 3, crotch at 4 (half), knees at 6.",
+    "Draw a simple stick figure on those marks, then add the masses: ribcage, pelvis, limbs.",
+    "Try 6 heads (a child) and compare."
+   ],
+   "tool": {
+    "route": "guides",
+    "label": "Open figure proportions"
+   },
+   "requires": [
+    "proportion-measure"
+   ]
+  },
+  {
+   "id": "perspective-one",
+   "cat": "perspective",
+   "level": "beginner",
+   "minutes": 20,
+   "title": "One-point perspective",
+   "goal": "Draw a road, a room or a corridor going into the distance.",
+   "steps": [
+    "In Guides choose Perspective → 1-point on blank paper. Note the horizon at eye level and one vanishing point.",
+    "Draw boxes floating above, below and on the horizon; their depth lines all go to the point.",
+    "Draw a road or corridor with doors and windows.",
+    "Print the guide and draw over it, or save it as a reference."
+   ],
+   "tool": {
+    "route": "guides",
+    "label": "Open perspective guides"
+   },
+   "requires": [
+    "shapes-boxes"
+   ]
+  },
+  {
+   "id": "perspective-two",
+   "cat": "perspective",
+   "level": "intermediate",
+   "minutes": 25,
+   "title": "Two-point perspective",
+   "goal": "Draw buildings and objects seen from a corner.",
+   "steps": [
+    "Choose 2-point perspective. Keep both points far apart, even outside the picture: close points distort.",
+    "Draw a box from its nearest vertical edge, then send its top and bottom edges to each point.",
+    "Make a small street of boxes; add roofs, doors and windows.",
+    "In the 3D sandbox, turn on vanishing points for a cube and compare."
+   ],
+   "tool": {
+    "route": "guides",
+    "label": "Open perspective guides"
+   },
+   "requires": [
+    "perspective-one"
+   ]
+  },
+  {
+   "id": "perspective-three",
+   "cat": "perspective",
+   "level": "advanced",
+   "minutes": 30,
+   "title": "Three-point perspective",
+   "goal": "Draw tall things seen from below or above.",
+   "steps": [
+    "Choose 3-point perspective; the third point sits far below (looking down) or above (looking up).",
+    "Draw a tall building whose verticals all lean to the third point.",
+    "In the 3D sandbox, look down at a tall box and turn on vanishing points.",
+    "Draw the same building from below and from above."
+   ],
+   "tool": {
+    "route": "guides",
+    "label": "Open perspective guides"
+   },
+   "requires": [
+    "perspective-two"
+   ]
+  },
+  {
+   "id": "light-shadow-shapes",
+   "cat": "light",
+   "level": "beginner",
+   "minutes": 15,
+   "title": "Light, form shadow and cast shadow",
+   "goal": "Tell the shadow on an object from the shadow it throws.",
+   "steps": [
+    "In the 3D sandbox, move the light around a sphere and a cube.",
+    "Name the parts: light side, form shadow (on the object), cast shadow (on the ground).",
+    "Draw the sphere with the three zones only.",
+    "Move the light lower: cast shadows get longer. Draw that too."
+   ],
+   "tool": {
+    "route": "sandbox",
+    "label": "Open the 3D sandbox"
+   },
+   "requires": [
+    "shapes-cylinders"
+   ]
+  },
+  {
+   "id": "light-values",
+   "cat": "light",
+   "level": "intermediate",
+   "minutes": 20,
+   "title": "Three-value studies",
+   "goal": "See a picture as light, middle and dark.",
+   "steps": [
+    "In the Studio, convert a photo with Three values.",
+    "Draw small (about 8 cm) studies using only paper white, one mid grey and one dark.",
+    "Squint at the photo: details disappear, big value shapes remain.",
+    "Do three studies of different photos."
+   ],
+   "tool": {
+    "route": "studio",
+    "label": "Open the Studio"
+   },
+   "requires": [
+    "light-shadow-shapes"
+   ]
+  },
+  {
+   "id": "light-reflected",
+   "cat": "light",
+   "level": "advanced",
+   "minutes": 25,
+   "title": "Reflected light and core shadow",
+   "goal": "Make round forms look really round.",
+   "steps": [
+    "Look at a white ball on a table near a window.",
+    "Find the core shadow: the darkest band of the form shadow, just past the turning point.",
+    "Find the reflected light: a slightly lighter edge inside the shadow, bounced from the table.",
+    "Draw the ball with these two details; keep the reflected light darker than any lit part."
+   ],
+   "tool": null,
+   "requires": [
+    "light-values"
+   ]
+  },
+  {
+   "id": "shading-scale",
+   "cat": "shading",
+   "level": "beginner",
+   "minutes": 15,
+   "title": "Value scale",
+   "goal": "Control pencil pressure from very light to very dark.",
+   "steps": [
+    "Draw a strip of 9 boxes. Fill them from white to your darkest dark, evenly stepped.",
+    "Use the Studio's Colour → value conversion to see a picture as these 9 steps.",
+    "Repeat with a softer pencil (4B or 6B) and compare the darkest box.",
+    "Keep the best scale as a reference."
+   ],
+   "tool": {
+    "route": "studio",
+    "label": "Open the Studio"
+   },
+   "requires": []
+  },
+  {
+   "id": "shading-hatching",
+   "cat": "shading",
+   "level": "intermediate",
+   "minutes": 20,
+   "title": "Hatching and crosshatching",
+   "goal": "Shade with lines instead of smudges.",
+   "steps": [
+    "Open Crosshatching in the Studio to see how darker areas get more line directions.",
+    "Shade a 9-step scale with hatching: tighter lines, then a second and third direction.",
+    "Shade a cube: one direction for the light side, two for the side, three for the cast shadow.",
+    "Shade a sphere with lines that follow its curve."
+   ],
+   "tool": {
+    "route": "studio",
+    "label": "Open the Studio"
+   },
+   "requires": [
+    "shading-scale"
+   ]
+  },
+  {
+   "id": "shading-gradients",
+   "cat": "shading",
+   "level": "intermediate",
+   "minutes": 20,
+   "title": "Smooth gradients",
+   "goal": "Shade without visible strokes.",
+   "steps": [
+    "Shade a long strip from dark to light with small overlapping circles, light pressure, many layers.",
+    "Build darks in layers instead of pressing hard.",
+    "Shade a cylinder: the gradient runs across, not along it.",
+    "Compare a blended and an unblended version: which reads better?"
+   ],
+   "tool": null,
+   "requires": [
+    "shading-scale"
+   ]
+  },
+  {
+   "id": "texture-basics",
+   "cat": "texture",
+   "level": "intermediate",
+   "minutes": 20,
+   "title": "Soft, rough, shiny",
+   "goal": "Suggest a surface with marks.",
+   "steps": [
+    "Make four squares: wood, stone, metal, fabric. Fill each with marks that feel like it.",
+    "Shiny: high contrast, sharp highlights. Soft: low contrast, soft edges.",
+    "Draw the same apple as shiny plastic and as a peach.",
+    "Only add texture in the light-to-mid areas; shadows hide it."
+   ],
+   "tool": null,
+   "requires": [
+    "shading-hatching"
+   ]
+  },
+  {
+   "id": "texture-form",
+   "cat": "texture",
+   "level": "intermediate",
+   "minutes": 20,
+   "title": "Texture that follows form",
+   "goal": "Bend patterns and marks around a round surface.",
+   "steps": [
+    "Draw stripes on a flat paper strip, then on a cylinder: on the cylinder they curve like ellipses.",
+    "In the 3D sandbox, look at the sphere in wireframe: the lines show how marks wrap around it.",
+    "Draw an orange: the dimples get smaller and closer together near its edges.",
+    "Draw a striped sweater sleeve; the stripes follow the folds."
+   ],
+   "tool": {
+    "route": "sandbox",
+    "label": "Open the 3D sandbox"
+   },
+   "requires": [
+    "texture-basics"
+   ]
+  },
+  {
+   "id": "texture-hair",
+   "cat": "texture",
+   "level": "advanced",
+   "minutes": 30,
+   "title": "Hair and fur",
+   "goal": "Draw hair as masses first, strands last.",
+   "steps": [
+    "Simplify the hair into 3–5 big shapes with the Studio's Posterize or Three values.",
+    "Shade the masses: light, mid, dark.",
+    "Add strands only at the edges and in the light, following the flow.",
+    "Lift highlights with an eraser."
+   ],
+   "tool": {
+    "route": "studio",
+    "label": "Open the Studio"
+   },
+   "requires": [
+    "texture-form"
+   ]
+  },
+  {
+   "id": "composition-thirds",
+   "cat": "composition",
+   "level": "beginner",
+   "minutes": 15,
+   "title": "Rule of thirds",
+   "goal": "Place the subject where the eye likes it.",
+   "steps": [
+    "Open Composition → Thirds in Guides over a few of your photos.",
+    "Find where the main subject sits: centre, or on a third line?",
+    "Draw three thumbnails (small boxes) of the same scene with the subject in different places.",
+    "Pick the one you like best and say why."
+   ],
+   "tool": {
+    "route": "guides",
+    "label": "Open composition guides"
+   },
+   "requires": []
+  },
+  {
+   "id": "composition-negative",
+   "cat": "composition",
+   "level": "intermediate",
+   "minutes": 20,
+   "title": "Negative space",
+   "goal": "Draw the spaces between things.",
+   "steps": [
+    "In the Studio, convert a photo of a chair or plant with Negative space.",
+    "Draw only the empty shapes around the object, not the object.",
+    "The object appears by itself; check its proportions.",
+    "Do the same with a hand making a gesture."
+   ],
+   "tool": {
+    "route": "studio",
+    "label": "Open the Studio"
+   },
+   "requires": [
+    "composition-thirds"
+   ]
+  },
+  {
+   "id": "composition-thumbnails",
+   "cat": "composition",
+   "level": "advanced",
+   "minutes": 25,
+   "title": "Thumbnail planning",
+   "goal": "Plan a drawing in small value sketches.",
+   "steps": [
+    "Draw six 5 × 4 cm boxes.",
+    "Sketch the same scene in each, changing viewpoint, crop or light.",
+    "Use only three values in each.",
+    "Choose the strongest and enlarge it with the grid in Prepare."
+   ],
+   "tool": null,
+   "requires": [
+    "composition-negative",
+    "light-values"
+   ]
+  },
+  {
+   "id": "figure-gesture",
+   "cat": "figure",
+   "level": "beginner",
+   "minutes": 15,
+   "title": "Gesture drawing",
+   "goal": "Capture the movement of a pose in seconds.",
+   "steps": [
+    "Open Timed practice with 30-second mannequin poses.",
+    "For each pose draw one curved line of action first (head to the supporting foot).",
+    "Add the head, ribcage and hips as simple shapes; stop when time runs out.",
+    "Do two rounds; the second is always freer."
+   ],
+   "tool": {
+    "route": "practice",
+    "label": "Open timed practice"
+   },
+   "requires": []
+  },
+  {
+   "id": "figure-mannequin",
+   "cat": "figure",
+   "level": "intermediate",
+   "minutes": 25,
+   "title": "The mannequin",
+   "goal": "Build a figure from simple 3D forms.",
+   "steps": [
+    "Use 2-minute mannequin poses in Timed practice.",
+    "Draw the ribcage as an egg, the pelvis as a box, limbs as cylinders.",
+    "Show which limbs are nearer by overlapping them.",
+    "Keep the 8-head proportions from the proportions lessons."
+   ],
+   "tool": {
+    "route": "practice",
+    "label": "Open timed practice"
+   },
+   "requires": [
+    "figure-gesture",
+    "proportion-figure"
+   ]
+  },
+  {
+   "id": "figure-hands",
+   "cat": "figure",
+   "level": "advanced",
+   "minutes": 30,
+   "title": "Hands",
+   "goal": "Draw hands from boxes and cylinders.",
+   "steps": [
+    "Draw the palm as a flat box, fingers as three cylinders each.",
+    "Use your own hand in different poses as the reference (Timed practice → your pictures).",
+    "Check that each finger's joints line up in curved rows.",
+    "Try the hand holding a cup."
+   ],
+   "tool": {
+    "route": "practice",
+    "label": "Open timed practice"
+   },
+   "requires": [
+    "figure-mannequin"
+   ]
+  },
+  {
+   "id": "advanced-portrait",
+   "cat": "advanced",
+   "level": "advanced",
+   "minutes": 60,
+   "title": "A finished portrait",
+   "goal": "Combine proportions, values and edges.",
+   "steps": [
+    "Start a project from a portrait photo with the Realistic style.",
+    "Follow the guided steps; use Face proportions in Guides to check the features.",
+    "Shade in three values first, then refine.",
+    "Compare with the original in the Compare screen and fix the biggest difference."
+   ],
+   "tool": {
+    "route": "home",
+    "label": "Start a project"
+   },
+   "requires": [
+    "proportion-face",
+    "light-values"
+   ]
+  },
+  {
+   "id": "advanced-still-life",
+   "cat": "advanced",
+   "level": "advanced",
+   "minutes": 60,
+   "title": "Still life with light",
+   "goal": "Draw a group of objects with one light.",
+   "steps": [
+    "Set up three objects by a window, or build them in the 3D sandbox.",
+    "Plan with thumbnails; mark the light direction on the page.",
+    "Draw shapes, then shadows (form and cast), then textures.",
+    "Record a timelapse with camera tracing to see your process."
+   ],
+   "tool": {
+    "route": "sandbox",
+    "label": "Open the 3D sandbox"
+   },
+   "requires": [
+    "light-reflected",
+    "composition-thumbnails"
+   ]
+  },
+  {
+   "id": "advanced-city",
+   "cat": "advanced",
+   "level": "advanced",
+   "minutes": 60,
+   "title": "A street in perspective",
+   "goal": "A detailed scene with depth.",
+   "steps": [
+    "Set up 2-point perspective in Guides with the horizon low.",
+    "Block in buildings as boxes, then cut in doors, windows and roofs.",
+    "Use line weight: thick near, thin far.",
+    "Add people at eye level: their heads all touch the horizon."
+   ],
+   "tool": {
+    "route": "guides",
+    "label": "Open perspective guides"
+   },
+   "requires": [
+    "perspective-three",
+    "lines-weight"
+   ]
+  }
+ ]
+}

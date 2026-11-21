@@ -298,3 +298,25 @@ a { text-underline-offset: 3px; }
 .sandbox-canvas { touch-action: none; cursor: grab; border-radius: 8px; }
 .sandbox-canvas:active { cursor: grabbing; }
 @media (max-width: 760px) { .sandbox-stage { order: -1; top: 60px; z-index: 5; } }
+
+/* Skill tree */
+.skills-link { display: grid; gap: 4px; text-decoration: none; color: inherit; border-left: 5px solid var(--accent); }
+.skills-next { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-left: 5px solid var(--accent); }
+.skills-next h2 { margin: 2px 0; }
+.skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.skills-cat { display: grid; gap: 8px; align-content: start; }
+.skills-cat-head { display: flex; gap: 10px; align-items: start; }
+.skills-cat-head h2 { margin: 0; font-size: 1.1rem; }
+.skills-num { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); font-weight: 700; }
+.skills-bar { height: 6px; border-radius: 3px; background: var(--paper-2); overflow: hidden; }
+.skills-bar i { display: block; height: 100%; background: var(--accent); }
+.skills-lessons { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.skills-lesson { width: 100%; display: grid; grid-template-columns: 22px 1fr; column-gap: 8px; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; cursor: pointer; min-height: var(--tap); }
+.skills-lesson .small { grid-column: 2; }
+.skills-lesson[data-status="done"] { background: var(--accent-soft); }
+.skills-lesson[data-status="locked"] { opacity: .6; }
+.skills-mark { grid-row: span 2; font-weight: 700; color: var(--accent); }
+.skills-steps { display: grid; gap: 10px; padding-left: 1.4em; }
+.skills-steps label { display: flex; gap: 10px; align-items: start; }
+.skills-steps input { margin-top: 4px; width: 20px; height: 20px; flex: none; }
+.lead { font-size: 1.15rem; }

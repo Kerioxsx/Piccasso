@@ -56,7 +56,10 @@ Legend: ✅ done · 🟡 partly done · ⬜ to build. "Web" = installable web ap
 | Feature | Status |
 |---|---|
 | Glossary, technique explanations inside steps, pressure/shading/colour guides | ✅ |
-| Skill tree (10 categories), technique library, guided exercises, practice templates, history, milestones, bookmarks, notes | ⬜ |
+| **Skill tree** with the 10 categories (basic shapes → advanced techniques), 30 lessons in three difficulty levels, unlocked in order | ✅ |
+| Step-by-step lessons with a goal, checkable steps and a button that opens the matching practice tool (Guides, 3D, Practice, Studio, a new project) | ✅ |
+| Completed-lesson tracking, learning history, milestones, bookmarks ("my practice set"), personal notes, offline (all on the device) | ✅ |
+| Visual demonstrations (animated) and more lessons per category | ⬜ |
 
 ## 6. Drawing analysis (no AI)
 | Feature | Status |
@@ -95,7 +98,7 @@ Privacy: local-first, no account, no data collection, camera permission explaine
 1. ~~Perspective and proportion guide overlays; line-weight chart~~ (done: Guides).
 2. ~~Gesture and timed practice~~ (done: Practice).
 3. ~~3D construction sandbox~~ (done: 3D).
-4. Skill tree, lessons and exercises (§5).
+4. ~~Skill tree, lessons and exercises~~ (done: Learn → Skill tree).
 5. Analysis tools: histogram, symmetry, measurements (§6).
 6. Workspace themes (paper, graphite, accent colours), library folders/tags/version history.
 7. Desktop ports of the Studio and the new web modules.
