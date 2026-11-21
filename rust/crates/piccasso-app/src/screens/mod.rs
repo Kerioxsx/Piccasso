@@ -4,7 +4,11 @@ use egui::RichText;
 
 pub mod autodraw;
 pub mod compare;
+pub mod analyze;
 pub mod guides;
+pub mod practice;
+pub mod sandbox;
+pub mod skills;
 pub mod studio;
 pub mod home;
 pub mod locked;
@@ -24,6 +28,10 @@ pub struct ScreenState {
     pub autodraw: autodraw::AutoDrawState,
     pub studio: studio::StudioState,
     pub guides: guides::GuidesState,
+    pub practice: practice::PracticeState,
+    pub skills: skills::SkillsState,
+    pub sandbox: sandbox::SandboxState,
+    pub analyze: analyze::AnalyzeState,
     pub phone: crate::bridge::PhoneState,
 }
 impl ScreenState {
@@ -35,6 +43,8 @@ impl ScreenState {
             Screen::Prepare => self.prepare = Default::default(),
             Screen::Studio => self.studio = Default::default(),
             Screen::Guides => self.guides = Default::default(),
+            Screen::Analyze => self.analyze = Default::default(),
+            Screen::Skills => self.skills = Default::default(),
             _ => {}
         }
     }
@@ -46,7 +56,8 @@ fn top_bar(app: &mut PiccassoApp, ctx: &egui::Context) {
             ui.add_space(4.0);
             if !matches!(app.screen, Screen::Home | Screen::Onboarding) && ui.button("◀ Back").clicked() {
                 let target = match app.screen {
-                    Screen::Workspace | Screen::Settings | Screen::Learn | Screen::Studio | Screen::Guides => Screen::Home,
+                    Screen::Workspace | Screen::Settings | Screen::Learn | Screen::Studio | Screen::Guides | Screen::Practice | Screen::Skills | Screen::Sandbox => Screen::Home,
+                    Screen::Analyze => if app.session.is_some() { Screen::Workspace } else { Screen::Home },
                     Screen::Prepare => if app.session.as_ref().map_or(false, |s| !s.project.steps.is_empty()) { Screen::Workspace } else { Screen::Home },
                     _ => Screen::Workspace,
                 };
@@ -56,7 +67,9 @@ fn top_bar(app: &mut PiccassoApp, ctx: &egui::Context) {
             ui.label(RichText::new("✏ Piccasso").size(22.0).strong().color(crate::ui::ACCENT));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.selectable_label(app.screen == Screen::Settings, "Settings").clicked() { app.go(Screen::Settings); }
-                if ui.selectable_label(app.screen == Screen::Learn, "Learn").clicked() { app.go(Screen::Learn); }
+                if ui.selectable_label(matches!(app.screen, Screen::Skills | Screen::Learn), "Lessons").clicked() { app.go(Screen::Skills); }
+                if ui.selectable_label(app.screen == Screen::Sandbox, "3D").clicked() { app.go(Screen::Sandbox); }
+                if ui.selectable_label(app.screen == Screen::Practice, "Practice").clicked() { app.go(Screen::Practice); }
                 if ui.selectable_label(app.screen == Screen::Guides, "Guides").clicked() { app.go(Screen::Guides); }
                 if ui.selectable_label(app.screen == Screen::Studio, "Studio").clicked() { app.go(Screen::Studio); }
                 if ui.selectable_label(app.screen == Screen::Home, "Projects").clicked() { app.save_project(); app.go(Screen::Home); }
@@ -88,6 +101,10 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
         Screen::AutoDraw => autodraw::show(app, ctx),
         Screen::Studio => studio::show(app, ctx),
         Screen::Guides => guides::show(app, ctx),
+        Screen::Practice => practice::show(app, ctx),
+        Screen::Skills => skills::show(app, ctx),
+        Screen::Sandbox => sandbox::show(app, ctx),
+        Screen::Analyze => analyze::show(app, ctx),
     }
 }
 

@@ -29,6 +29,10 @@ pub enum Screen {
     AutoDraw,
     Studio,
     Guides,
+    Practice,
+    Skills,
+    Sandbox,
+    Analyze,
 }
 
 /// The project currently open, with decoded source and rendered guides.
@@ -105,7 +109,7 @@ impl PiccassoApp {
             crate::screens::home::load_demo(&mut app);
             app.screen = match start.as_str() {
                 "prepare" => Screen::Prepare, "locked" => Screen::Locked, "overlay" => Screen::Overlay,
-                "compare" => Screen::Compare, "autodraw" => Screen::AutoDraw, "settings" => Screen::Settings, "home" => Screen::Home, "learn" => Screen::Learn, "studio" => Screen::Studio, "guides" => Screen::Guides,
+                "compare" => Screen::Compare, "autodraw" => Screen::AutoDraw, "settings" => Screen::Settings, "home" => Screen::Home, "learn" => Screen::Learn, "studio" => Screen::Studio, "guides" => Screen::Guides, "practice" => Screen::Practice, "skills" => Screen::Skills, "sandbox" => Screen::Sandbox, "analyze" => Screen::Analyze,
                 _ => Screen::Workspace,
             };
             app.screen_state.on_enter(app.screen);

@@ -165,6 +165,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                 if ui.add(egui::Button::new("🔒 Locked view").min_size(vec2(0.0, 40.0))).clicked() { go = Some(Screen::Locked); }
                 if ui.add(egui::Button::new("📷 Camera overlay").min_size(vec2(0.0, 40.0))).clicked() { go = Some(Screen::Overlay); }
                 if ui.add(egui::Button::new("✔ Check a photo").min_size(vec2(0.0, 40.0))).clicked() { go = Some(Screen::Compare); }
+                if ui.add(egui::Button::new("Analyze values").min_size(vec2(0.0, 40.0))).clicked() { go = Some(Screen::Analyze); }
                 if ui.add(egui::Button::new("✏ Auto-draw on PC").min_size(vec2(0.0, 40.0))).on_hover_text("Let Piccasso move the mouse to draw the lines in another program").clicked() { go = Some(Screen::AutoDraw); }
             });
             ui.horizontal_wrapped(|ui| {

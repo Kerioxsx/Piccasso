@@ -104,4 +104,4 @@ Privacy: local-first, no account, no data collection, camera permission explaine
 4. ~~Skill tree, lessons and exercises~~ (done: Learn → Skill tree).
 5. ~~Analysis tools~~ (done: Analyze).
 6. ~~Workspace themes and library organisation~~ (done; version history still open).
-7. Desktop ports: Studio and Guides ✅; Practice, 3D sandbox, Skill tree and Analyze next.
+7. ~~Desktop ports~~: Studio, Guides, Practice, 3D sandbox, Skill tree and Analyze are in the desktop app too (Rust ports in `piccasso-core`: filters, guides, practice, sandbox3d, inspect).
