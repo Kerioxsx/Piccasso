@@ -15,7 +15,7 @@ export function renderCompare(main) {
   const layout = paperLayout(p.prep.paper, app.shared.paper.presets, p.analysis.aspect, app.shared.paper.defaultMarginMm);
   const body = h('div.stack');
   main.appendChild(h('div.stack', { style: { maxWidth: '900px', margin: '0 auto' } },
-    h('div.row', h('button.btn.small', { type: 'button', on: { click: () => nav('workspace') } }, icon('prev'), 'Back to steps'), h('h1', { style: { margin: 0 } }, 'Check your drawing')),
+    h('div.row', h('button.btn.small', { type: 'button', on: { click: () => nav('workspace') } }, icon('prev'), 'Back to steps'), h('h1', { style: { margin: 0 } }, 'Check your drawing'), h('button.btn.small', { type: 'button', on: { click: () => nav('analyze') } }, 'Analyze values, symmetry, measurements')),
     body));
 
   function intro() {
