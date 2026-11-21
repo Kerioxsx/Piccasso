@@ -112,6 +112,7 @@ export async function renderHome(main) {
 export function renderLearn(main) {
   const g = app.shared.glossary;
   main.appendChild(h('div.stack', { style: { maxWidth: '760px' } },
+    h('a.card.skills-link', { href: '#/skills' }, h('strong', 'Skill tree: 30 lessons'), h('span.small.muted', 'From basic shapes to finished portraits, step by step, with practice tools for each lesson.')),
     h('h1', 'Drawing words, explained'),
     h('p.muted', 'You don\'t need to know these to start. Piccasso links to them from each step.'),
     h('dl.glossary', g.terms.flatMap((t) => [h('dt', { id: `term-${t.id}` }, t.term), h('dd', t.text)])),
