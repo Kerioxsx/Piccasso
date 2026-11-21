@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "styles": [
+    { "id": "original",           "label": "Original reference", "description": "Your image with only crop, rotation and brightness/contrast applied." },
+    { "id": "clean_outline",      "label": "Clean outline",      "description": "Crisp edge lines found in the image." },
+    { "id": "simplified_outline", "label": "Simplified outline", "description": "Fewer, bigger shapes: small details are merged away." },
+    { "id": "pencil_sketch",      "label": "Pencil sketch",      "description": "A soft graphite-style version of the image." },
+    { "id": "light_sketch",       "label": "Light sketch",       "description": "Very faint lines, ideal for tracing." },
+    { "id": "contour_only",       "label": "Contour only",       "description": "Just the outside edge (silhouette) of the main subject." },
+    { "id": "shading_guide",      "label": "Shading guide",      "description": "Flat light, middle and dark areas to help you shade." },
+    { "id": "basic_shapes",       "label": "Basic shapes",       "description": "Circles, ovals and boxes that build up the subject." }
+  ]
+}

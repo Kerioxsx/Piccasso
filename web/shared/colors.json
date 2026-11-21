@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "note": "Plain colour names for palette suggestions (nearest by RGB distance).",
+  "colors": [
+    ["black", [20, 20, 20]], ["dark grey", [70, 70, 70]], ["grey", [128, 128, 128]], ["light grey", [195, 195, 195]], ["white", [245, 245, 245]],
+    ["cream", [240, 230, 200]], ["beige", [215, 195, 160]], ["tan", [190, 155, 110]], ["brown", [125, 80, 45]], ["dark brown", [70, 45, 25]],
+    ["red", [200, 40, 40]], ["dark red", [120, 20, 25]], ["pink", [235, 150, 170]], ["peach", [245, 190, 150]], ["orange", [235, 130, 40]],
+    ["gold", [210, 170, 50]], ["yellow", [240, 220, 60]], ["olive green", [130, 140, 50]], ["light green", [150, 200, 110]], ["green", [60, 150, 60]],
+    ["dark green", [30, 80, 40]], ["teal", [40, 130, 130]], ["sky blue", [130, 190, 235]], ["blue", [50, 100, 190]], ["navy", [25, 40, 90]],
+    ["purple", [120, 60, 150]], ["lavender", [180, 160, 220]]
+  ]
+}

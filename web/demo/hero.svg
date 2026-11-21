@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="Sketch of a pear and a mug with construction shapes">
+  <rect width="400" height="300" fill="#fffdf9"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="0" y1="205" x2="400" y2="205" stroke="#c9bfae" stroke-width="2"/>
+    <ellipse cx="140" cy="165" rx="50" ry="50" stroke="#c2185b" stroke-width="2" stroke-dasharray="6 5"/>
+    <ellipse cx="138" cy="110" rx="30" ry="30" stroke="#c2185b" stroke-width="2" stroke-dasharray="6 5"/>
+    <rect x="235" y="105" width="85" height="100" stroke="#c2185b" stroke-width="2" stroke-dasharray="6 5"/>
+    <path d="M138 80c-18 0-30 14-30 30 0 9 4 16 10 21-22 8-38 27-38 48 0 26 26 46 60 46s60-20 60-46c0-21-16-40-38-48 6-5 10-12 10-21 0-16-12-30-30-30z" stroke="#24221e" stroke-width="3"/>
+    <path d="M138 80l3-20" stroke="#24221e" stroke-width="3"/>
+    <path d="M235 108v94c0 4 85 4 85 0v-94" stroke="#24221e" stroke-width="3"/>
+    <ellipse cx="277" cy="108" rx="42" ry="7" stroke="#24221e" stroke-width="3"/>
+    <path d="M320 128c26 0 30 46 0 46" stroke="#24221e" stroke-width="3"/>
+    <path d="M160 190c10-6 18-18 18-30M298 125v70" stroke="#1565c0" stroke-width="2" stroke-dasharray="4 4"/>
+    <path d="M110 150c4-10 12-16 20-18" stroke="#24221e" stroke-width="1.5" opacity=".5"/>
+  </g>
+  <g stroke="#24221e" stroke-width="1.2" opacity=".45">
+    <path d="M165 175l12-12M170 182l12-12M174 190l10-10M300 140l16-10M300 155l16-10M300 170l16-10M300 185l16-10"/>
+  </g>
+  <circle cx="58" cy="45" r="14" fill="#f9a825" opacity=".85"/>
+</svg>

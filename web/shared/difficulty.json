@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "analysisMaxDim": 320,
+  "levels": {
+    "very_easy": {
+      "label": "Very Easy",
+      "blurRadius": 3,
+      "edgeFraction": 0.035,
+      "minEdge": 28,
+      "valueLevels": 3,
+      "maxObjects": 3,
+      "maxShapes": 3,
+      "maxInternal": 2,
+      "minAreaFrac": 0.02,
+      "dpEpsilon": 0.012,
+      "steps": [
+        "page",
+        "shapes",
+        "contours",
+        "clean",
+        "pressure",
+        "values"
+      ]
+    },
+    "easy": {
+      "label": "Easy",
+      "blurRadius": 2,
+      "edgeFraction": 0.055,
+      "minEdge": 26,
+      "valueLevels": 3,
+      "maxObjects": 4,
+      "maxShapes": 5,
+      "maxInternal": 4,
+      "minAreaFrac": 0.01,
+      "dpEpsilon": 0.008,
+      "steps": [
+        "page",
+        "shapes",
+        "proportions",
+        "contours",
+        "features",
+        "clean",
+        "pressure",
+        "values"
+      ]
+    },
+    "intermediate": {
+      "label": "Intermediate",
+      "blurRadius": 2,
+      "edgeFraction": 0.085,
+      "minEdge": 22,
+      "valueLevels": 4,
+      "maxObjects": 5,
+      "maxShapes": 8,
+      "maxInternal": 8,
+      "minAreaFrac": 0.005,
+      "dpEpsilon": 0.005,
+      "steps": [
+        "page",
+        "shapes",
+        "proportions",
+        "contours",
+        "forms",
+        "features",
+        "clean",
+        "pressure",
+        "values",
+        "details"
+      ]
+    },
+    "detailed": {
+      "label": "Detailed",
+      "blurRadius": 1,
+      "edgeFraction": 0.12,
+      "minEdge": 18,
+      "valueLevels": 5,
+      "maxObjects": 6,
+      "maxShapes": 12,
+      "maxInternal": 14,
+      "minAreaFrac": 0.0025,
+      "dpEpsilon": 0.003,
+      "steps": [
+        "page",
+        "shapes",
+        "proportions",
+        "contours",
+        "forms",
+        "features",
+        "clean",
+        "pressure",
+        "values",
+        "details"
+      ]
+    }
+  }
+}

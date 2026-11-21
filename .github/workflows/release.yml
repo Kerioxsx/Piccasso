@@ -1,0 +1,63 @@
+name: Desktop app
+# Builds the Rust desktop app for Windows, macOS and Linux and publishes it as a
+# GitHub release, so the website's download buttons always get the newest build.
+on:
+  push:
+    branches: [main]
+    paths: ['rust/**', 'shared/**', '.github/workflows/release.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: Piccasso-windows.zip
+          - os: macos-latest
+            asset: Piccasso-macos.zip
+          - os: ubuntu-latest
+            asset: Piccasso-linux.tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libgtk-3-dev
+      - run: cargo build --release -p piccasso-app
+        working-directory: rust
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist/Piccasso
+          cp README.md dist/Piccasso/
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp rust/target/release/piccasso.exe dist/Piccasso/
+            (cd dist && 7z a ../${{ matrix.asset }} Piccasso >/dev/null)
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            cp rust/target/release/piccasso dist/Piccasso/
+            (cd dist && zip -qr ../${{ matrix.asset }} Piccasso)
+          else
+            cp rust/target/release/piccasso dist/Piccasso/
+            tar -czf ${{ matrix.asset }} -C dist Piccasso
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: Piccasso 0.1.${{ github.run_number }}
+          body: Desktop app for Windows, macOS and Linux. Unzip and run piccasso (piccasso.exe on Windows).
+          files: assets/*

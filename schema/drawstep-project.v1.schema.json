@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://piccasso.app/schema/piccasso-project.v1.schema.json",
+  "title": "Piccasso project (format v1)",
+  "description": "Portable project file shared by the Piccasso web app and the Piccasso Rust desktop app. File extension: .piccasso.json. Unknown properties MUST be preserved by readers that re-save the file.",
+  "type": "object",
+  "required": ["format", "version", "id", "name", "source"],
+  "properties": {
+    "format": { "const": "piccasso-project" },
+    "version": { "type": "integer", "minimum": 1, "description": "Readers reject files with a version newer than they support." },
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "createdWith": { "type": "object", "properties": { "app": { "type": "string" }, "version": { "type": "string" } } },
+    "source": {
+      "type": "object",
+      "required": ["mime", "width", "height", "data"],
+      "properties": {
+        "mime": { "enum": ["image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp"] },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "data": { "type": "string", "description": "Base64 image bytes without a data: prefix. Apps cap the long side at 2048 px." }
+      }
+    },
+    "prep": {
+      "type": "object",
+      "description": "Preparation settings. Processed images are re-derived from source + prep, so files stay small and portable.",
+      "properties": {
+        "crop": { "$ref": "#/$defs/rect", "description": "Normalized crop, relative to the rotated/flipped image." },
+        "rotation": { "enum": [0, 90, 180, 270] },
+        "flipH": { "type": "boolean" },
+        "flipV": { "type": "boolean" },
+        "brightness": { "type": "number", "minimum": -100, "maximum": 100 },
+        "contrast": { "type": "number", "minimum": -100, "maximum": 100 },
+        "style": { "enum": ["original", "clean_outline", "simplified_outline", "pencil_sketch", "light_sketch", "contour_only", "shading_guide", "basic_shapes"] },
+        "difficulty": { "enum": ["very_easy", "easy", "intermediate", "detailed"] },
+        "lineThickness": { "type": "number", "minimum": 1, "maximum": 5 },
+        "sketchContrast": { "type": "number", "minimum": -50, "maximum": 100 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 100 },
+        "simplifyBackground": { "type": "boolean" },
+        "excludedObjects": { "type": "array", "items": { "type": "string" } },
+        "isolateObject": { "type": ["string", "null"] },
+        "paper": {
+          "type": "object",
+          "properties": {
+            "preset": { "type": "string", "description": "Id from shared/paper.json (a4, a5, letter, sketch9x12, square)." },
+            "orientation": { "enum": ["auto", "portrait", "landscape"] },
+            "marginMm": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "analysis": {
+      "type": ["object", "null"],
+      "description": "Drawing plan. Points are (x/width, y/height) in 0..1; ellipse radii rx/ry are fractions of the image WIDTH.",
+      "properties": {
+        "engine": { "type": "string", "description": "local-v1 | manual" },
+        "width": { "type": "integer" }, "height": { "type": "integer" }, "aspect": { "type": "number" },
+        "lowContrast": { "type": "boolean" },
+        "subject": { "type": "object", "properties": { "bbox": { "$ref": "#/$defs/box" }, "aspect": { "type": "number" }, "whole": { "type": "boolean" } } },
+        "objects": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "bbox": { "$ref": "#/$defs/box" }, "centroid": { "$ref": "#/$defs/point" }, "areaFrac": { "type": "number" } } } },
+        "activeObjects": { "type": "array", "items": { "type": "string" } },
+        "silhouettes": { "type": "array", "items": { "$ref": "#/$defs/contour" } },
+        "internals": { "type": "array", "items": { "allOf": [{ "$ref": "#/$defs/contour" }, { "properties": { "id": { "type": "string" }, "tone": { "enum": ["dark", "light"] } } }] } },
+        "shapes": { "type": "array", "items": { "type": "object", "properties": {
+          "id": { "type": "string" }, "kind": { "enum": ["ellipse", "circle", "box"] }, "source": { "type": "string" },
+          "cx": { "type": "number" }, "cy": { "type": "number" }, "rx": { "type": "number" }, "ry": { "type": "number" }, "angle": { "type": "number" }, "areaFrac": { "type": "number" } } } },
+        "values": { "type": "object", "properties": { "levels": { "type": "integer" }, "fractions": { "type": "array", "items": { "type": "number" } }, "darkPos": { "$ref": "#/$defs/pos" }, "lightDir": { "anyOf": [{ "$ref": "#/$defs/pos" }, { "const": "even" }] } } },
+        "detail": { "type": "object", "properties": { "cells": { "type": "array", "items": { "type": "integer" } }, "pos": { "$ref": "#/$defs/pos" }, "density": { "type": "number" } } },
+        "landmarks": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "x": { "type": "number" }, "y": { "type": "number" } } } }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "instruction"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "enum": ["page", "shapes", "proportions", "contours", "forms", "features", "clean", "values", "details"] },
+          "title": { "type": "string" }, "instruction": { "type": "string" }, "tip": { "type": "string" },
+          "checks": { "type": "array", "items": { "type": "string" } },
+          "base": { "type": "string", "description": "Raster under the overlay: none | light | outline | values | sketch | original" },
+          "layers": { "type": "array", "items": { "enum": ["frame", "grid", "subjectBox", "shapes", "measures", "silhouette", "internal", "landmarks", "light"] } },
+          "terms": { "type": "array", "items": { "type": "string" } },
+          "source": { "enum": ["ai"], "description": "Present when the wording was written by the optional AI helper." },
+          "localInstruction": { "type": "string", "description": "Built-in wording kept when source = ai." }
+        }
+      }
+    },
+    "progress": { "type": "object", "properties": {
+      "currentStep": { "type": "integer", "minimum": 0 },
+      "completed": { "type": "array", "items": { "type": "string" } },
+      "skipped": { "type": "array", "items": { "type": "string" } },
+      "timeSpentSec": { "type": "number", "minimum": 0 } } },
+    "view": { "type": "object", "properties": {
+      "zoom": { "type": "number" }, "panX": { "type": "number" }, "panY": { "type": "number" },
+      "brightness": { "type": "number" }, "contrast": { "type": "number" }, "opacity": { "type": "number" }, "fit": { "type": "string" } } },
+    "ar": { "type": "object", "properties": {
+      "opacity": { "type": "number", "minimum": 0, "maximum": 1 }, "scale": { "type": "number" }, "rotation": { "type": "number" },
+      "offsetX": { "type": "number" }, "offsetY": { "type": "number" },
+      "corners": { "type": ["array", "null"], "items": { "$ref": "#/$defs/point" }, "description": "Calibrated paper corners (TL,TR,BR,BL), normalized to the camera/photo view." },
+      "layer": { "type": "string" }, "alignmentLocked": { "type": "boolean" } } },
+    "thumb": { "type": "string", "description": "Optional (web): small JPEG data URL for project lists." },
+    "ai": { "type": "object", "description": "Optional: record of AI helper use (used, model, subject)." }
+  },
+  "$defs": {
+    "point": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+    "box": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4, "description": "[x0, y0, x1, y1] normalized" },
+    "rect": { "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "w": { "type": "number" }, "h": { "type": "number" } } },
+    "pos": { "enum": ["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"] },
+    "contour": { "type": "object", "properties": { "closed": { "type": "boolean" }, "points": { "type": "array", "items": { "$ref": "#/$defs/point" } }, "objectId": { "type": "string" } } }
+  }
+}

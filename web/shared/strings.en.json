@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "lang": "en",
+  "positions": {
+    "tl": "the top left",
+    "tc": "the top",
+    "tr": "the top right",
+    "ml": "the left side",
+    "mc": "the middle",
+    "mr": "the right side",
+    "bl": "the bottom left",
+    "bc": "the bottom",
+    "br": "the bottom right"
+  },
+  "sizes": [
+    "large",
+    "medium",
+    "small"
+  ],
+  "shapeKinds": {
+    "ellipse": "oval",
+    "circle": "circle",
+    "box": "box"
+  },
+  "aspect": {
+    "taller": "about {r} times as tall as it is wide",
+    "wider": "about {r} times as wide as it is tall",
+    "square": "about as tall as it is wide"
+  },
+  "light": {
+    "even": "The light is fairly even, so shadows are soft and spread out.",
+    "dir": "The light seems to come from {dir}, so the shadows fall on the opposite side."
+  },
+  "steps": {
+    "page": {
+      "title": "Prepare the page",
+      "instruction": "Place your paper in {orient} orientation. Leave a border of about {marginCm} cm. Your drawing will fill an area about {drawWcm} cm wide and {drawHcm} cm tall. Lightly mark the top, bottom, left and right edges of that area with tiny dots.",
+      "tip": "Press very lightly. These marks are only guides and will be erased later.",
+      "checks": [
+        "Are the four edge marks about {drawWcm} cm apart side to side and {drawHcm} cm top to bottom?",
+        "Is there an even border all around?"
+      ],
+      "motion": "Hold the pencil loosely, far from the tip. Make small dots; don't drag the pencil."
+    },
+    "shapes": {
+      "title": "Block in basic shapes",
+      "instruction": "Look for simple shapes inside the picture. Start with {shapeList}. Draw each one as a loose, light outline. Don't worry about details yet.",
+      "tip": "Hold the pencil further from the tip and draw from your shoulder for smoother ovals.",
+      "checks": [
+        "Do you have {shapeList}?",
+        "Are your lines light enough to erase?"
+      ],
+      "motion": "Draw from your shoulder with your whole arm. Go around each oval 2-3 times very lightly, then keep the best line."
+    },
+    "proportions": {
+      "title": "Check proportions",
+      "instruction": "The whole subject is {aspectPhrase}. Compare your shapes: {compareList}. Fix any shape that looks too big, too small or out of place before moving on.",
+      "tip": "Hold your pencil at arm's length and use it like a ruler to compare sizes.",
+      "checks": [
+        "Is the whole drawing {aspectPhrase}?",
+        "Squint at your paper and the guide. Do the big shapes match?"
+      ],
+      "motion": "Keep your arm straight and close one eye when you measure with the pencil, so every measurement is taken the same way."
+    },
+    "contours": {
+      "title": "Draw the main outline",
+      "instruction": "Now follow the outside edge of the subject (its silhouette). Begin at {startPos} and travel around the shape. The outline has {cornerCount} noticeable turns. Use your basic shapes as a frame.",
+      "tip": "Use several short strokes instead of one long line; it's easier to stay on track.",
+      "checks": [
+        "Does your outline start near {startPos}?",
+        "Does the outline stay close to your basic shapes?"
+      ],
+      "motion": "Move from the elbow in short, overlapping strokes. Turn the paper so curves are always comfortable to draw."
+    },
+    "forms": {
+      "title": "Add the big inner shapes",
+      "instruction": "Inside the outline there are {internalCount} large areas with clear edges. The biggest one sits near {internalPos}. Draw their boundaries lightly.",
+      "tip": "Squint at the reference: squinting hides small details and shows the big shapes.",
+      "checks": [
+        "Did you place the biggest inner shape near {internalPos}?"
+      ],
+      "motion": "Use slower wrist movements for medium shapes. Stop and look every few strokes."
+    },
+    "features": {
+      "title": "Refine features",
+      "instruction": "Add the smaller edges and features. Most of the detail is near {detailPos}. Work from the largest features to the smallest, checking each one against the guide.",
+      "tip": "Turn the paper as you draw so your hand moves in a comfortable direction.",
+      "checks": [
+        "Is most of your detail near {detailPos}, like in the guide?",
+        "Did you work from big features to small ones?"
+      ],
+      "motion": "Rest the side of your hand on a scrap of paper (so you don't smudge) and use small finger movements for details."
+    },
+    "clean": {
+      "title": "Clean up the sketch",
+      "instruction": "Gently erase the construction shapes and the page marks you no longer need. Then go over the lines you want to keep with a slightly firmer stroke.",
+      "tip": "A kneaded eraser lifts graphite without damaging the paper.",
+      "checks": [
+        "Are the construction lines gone or very faint?",
+        "Are the important outlines a little darker now?"
+      ],
+      "motion": "Dab or roll the eraser instead of rubbing hard; rubbing damages the paper."
+    },
+    "values": {
+      "title": "Shadows and values",
+      "instruction": "{lightSentence} The darkest areas are near {darkPos}. {shadeMethod} Shade the dark shapes first, then the middle tones. Leave the brightest areas as clean paper.",
+      "tip": "Build darkness slowly with light layers instead of pressing hard.",
+      "checks": [
+        "Are your darkest areas near {darkPos}?",
+        "Did you leave the brightest spots as clean paper?"
+      ],
+      "motion": "Keep a low pencil angle and follow the curve of each surface with your strokes. Change pressure, not speed."
+    },
+    "details": {
+      "title": "Final details",
+      "instruction": "Add texture, small accents and sharp dark touches where the reference shows them, mostly around {detailPos}. Stop when it looks finished to you; not every detail needs to be drawn.",
+      "tip": "Step back from your drawing every few minutes to see it as a whole.",
+      "checks": [
+        "Step back: does the drawing read well from a distance?"
+      ],
+      "motion": "Use short flicks: press at the start of a line and lift at the end so it tapers."
+    },
+    "pressure": {
+      "title": "Pencil pressure and grades",
+      "instruction": "Before shading, learn how hard to press. This picture needs {bandCount} tones: {pressureList}. Practise each tone in a small square at the edge of your paper first. {highlightTip}",
+      "tip": "Pressure is easier to control than you think: try counting 1-2-3 for light, medium and firm before you start.",
+      "checks": [
+        "Can you make each tone in your practice squares?",
+        "Is your lightest tone barely visible?"
+      ],
+      "motion": "Hold the pencil at a low angle and use the side of the lead. Stroke back and forth in one direction without lifting."
+    },
+    "color": {
+      "title": "Colour it in",
+      "instruction": "This picture uses these main colours: {paletteList}. Start with the lightest colours and keep the pressure light, then add the middle colours and finish with the darkest ones. {colorTip}",
+      "tip": "Layer instead of pressing hard: three light layers look richer than one heavy one.",
+      "checks": [
+        "Did you start with the lightest colours?",
+        "Are the darkest colours only where the picture is darkest?"
+      ],
+      "motion": "Use small overlapping circles or short strokes in one direction with light pressure. Build colour in several thin layers."
+    }
+  },
+  "compareItem": "the {a} {kindA} is {ratio} the {b} {kindB}",
+  "compareSingle": "your main shape should be {aspectPhrase}",
+  "ratioWords": {
+    "same": "about the same size as",
+    "twice": "about twice the size of",
+    "x": "about {n} times the size of"
+  },
+  "fallback": {
+    "lowContrast": "The picture has low contrast, so the main subject could not be separated from the background automatically. The steps use the whole picture as the subject; try increasing contrast or cropping closer."
+  },
+  "compare": {
+    "wider": "Your drawing looks about {pct}% wider than the guide. Try bringing the left and right edges in a little.",
+    "narrower": "Your drawing looks about {pct}% narrower than the guide. Try widening it slightly.",
+    "taller": "Your drawing looks about {pct}% taller than the guide.",
+    "shorter": "Your drawing looks about {pct}% shorter than the guide.",
+    "shiftLeft": "Your drawing sits a bit to the left of where the guide places it.",
+    "shiftRight": "Your drawing sits a bit to the right of where the guide places it.",
+    "shiftUp": "Your drawing sits a bit higher on the page than the guide.",
+    "shiftDown": "Your drawing sits a bit lower on the page than the guide.",
+    "sparse": "Around {pos} the guide has lines that your drawing doesn't show yet.",
+    "good": "Nice work! The overall size and placement closely match the guide.",
+    "empty": "We couldn't find pencil lines in the photo. Try a brighter, sharper photo taken straight above the paper."
+  },
+  "shapePhrase": "a {size} {kind} near {pos}",
+  "manualSteps": {
+    "page": "Decide how big your drawing will be and lightly mark its top, bottom, left and right edges on the paper. Leave a border all around.",
+    "contours": "Look at the picture and draw the biggest outside edges first, very lightly. Compare sizes as you go.",
+    "clean": "Erase lines you don't need and make the important outlines a little darker.",
+    "values": "Squint at the picture to find the darkest areas. Shade those first, then the middle tones. Leave the brightest parts white.",
+    "details": "Add small details and textures last. Stop when you're happy with it."
+  },
+  "pressureItem": "{label} ({pct}% pressure, {grade} pencil, mostly near {pos})",
+  "pressureLabels": {
+    "lightest": "lightest",
+    "light": "light",
+    "medium": "medium",
+    "firm": "firm",
+    "veryFirm": "very firm"
+  },
+  "highlightTip": "Leave the shiny highlights as untouched white paper.",
+  "shadeMethods": {
+    "very_easy": "Shade with the side of the pencil in small, gentle back-and-forth strokes.",
+    "easy": "Shade with small back-and-forth strokes going the same direction; overlap them so no gaps show.",
+    "intermediate": "Use hatching: parallel lines close together. Put lines closer together to make an area darker.",
+    "detailed": "Use hatching, then crosshatching (a second layer of lines at an angle) for the darkest areas, and blend softly with a tissue or blending stump."
+  },
+  "paletteItem": "{name} ({where})",
+  "colorTip": "With a single colour pencil, use pressure for light and dark instead of switching colours.",
+  "grid": "Optional grid method: draw a very light grid of {gridCm} cm squares, {cols} across and {rows} down, then copy what you see in each square.",
+  "paperCustom": "Custom size"
+}
