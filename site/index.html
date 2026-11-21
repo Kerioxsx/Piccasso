@@ -133,6 +133,47 @@ pre { margin: 0; background: var(--graphite); color: var(--paper); padding: 16px
 footer { border-top: 1px solid var(--rule); padding-block: 40px 56px; color: var(--smudge); font-size: 15px; }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: baseline; }
 footer .note { color: var(--graphite); }
+
+/* toolbox cards */
+.tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin-top: 44px; }
+@media (max-width: 900px) { .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .tools { grid-template-columns: 1fr; } }
+.tool { position: relative; display: grid; gap: 8px; padding: 22px; text-decoration: none; transition: transform 200ms var(--ease-out); }
+.tool > svg.rough { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.tool:hover { transform: translateY(-3px) rotate(-0.4deg); }
+.tool svg.doodle { width: 56px; height: 56px; overflow: visible; }
+.tool h3 { font-size: 28px; }
+.tool p { margin: 0; color: var(--lead); font-size: 16px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.chip-row span { font: 700 20px/1 var(--font-hand); border: 1.3px solid var(--graphite); border-radius: 999px; padding: 6px 12px; transform: rotate(var(--r, -1deg)); animation: wobble 4s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -0.5s); }
+.chip-row span:nth-child(odd) { --r: 1.2deg; }
+@keyframes wobble { 50% { transform: rotate(calc(var(--r, -1deg) * -1)) translateY(-2px); } }
+svg.sketch { display: block; width: 100%; max-width: 420px; height: auto; margin-top: 22px; overflow: visible; }
+svg#cube3d { overflow: hidden; }
+svg.sketch .hand { transform-origin: 0 0; animation: tick 30s steps(30) infinite; }
+@keyframes tick { to { transform: rotate(360deg); } }
+.tree { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 0; max-width: 40ch; counter-reset: l; }
+.tree li { position: relative; padding: 6px 0 6px 38px; color: var(--lead); counter-increment: l; }
+.tree li::before { content: ""; position: absolute; left: 6px; top: 12px; width: 14px; height: 14px; border: 1.6px solid var(--graphite); border-radius: 50%; background: var(--paper); z-index: 1; }
+.tree li:not(:last-child)::after { content: ""; position: absolute; left: 13px; top: 26px; bottom: -12px; border-left: 1.4px dashed var(--smudge); }
+.tree li.done::before { background: var(--graphite); }
+.tree li.now { color: var(--graphite); font-weight: 600; }
+.tree li.now::before { animation: pulse 1.8s var(--ease-out) infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(28, 28, 27, .35); } 100% { box-shadow: 0 0 0 10px rgba(28, 28, 27, 0); } }
+.bars { display: flex; gap: 28px; align-items: flex-end; height: 140px; margin-top: 26px; }
+.bars > div { display: grid; grid-template-columns: 22px 22px; grid-template-rows: 1fr auto; column-gap: 6px; align-items: end; height: 100%; }
+.bars span { display: block; height: calc(var(--v) * 100%); background: var(--rule); border: 1.4px solid var(--graphite); border-bottom: 0; transform-origin: bottom; }
+.bars span.mine { background: repeating-linear-gradient(135deg, var(--graphite) 0 1.4px, transparent 1.4px 6px); }
+.bars em { grid-column: 1 / -1; font: 700 20px/1.2 var(--font-hand); font-style: normal; color: var(--lead); padding-top: 4px; border-top: 1.4px solid var(--graphite); }
+.bars.grow span { animation: grow 1s var(--ease-out) backwards; }
+.bars.grow span.mine { animation-delay: .25s; }
+@keyframes grow { from { transform: scaleY(0); } }
+.craft { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin-top: 40px; }
+@media (max-width: 900px) { .craft { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .craft { grid-template-columns: 1fr; } }
+.craft .num { font: 700 40px/1 var(--font-hand); }
+.craft p { margin: 8px 0 0; color: var(--lead); }
+@media (prefers-reduced-motion: reduce) { .chip-row span, svg.sketch .hand, .tree li.now::before, .bars.grow span { animation: none; } .tool { transition: none; } }
   .dl{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
   details{margin-top:12px} details summary{cursor:pointer;color:var(--lead)}
 </style>
@@ -151,6 +192,7 @@ footer .note { color: var(--graphite); }
       <a href="#trace">Tracing</a>
       <a href="#auto">Auto-draw</a>
       <a href="#replica">Replica</a>
+      <a href="#tools">Tools</a>
       <a class="cta-link" href="#run">Get Piccasso</a>
     </nav>
   </div>
@@ -346,6 +388,207 @@ footer .note { color: var(--graphite); }
     </div>
   </section>
 
+  <section class="spread" id="colour">
+    <div class="wrap">
+      <div class="spread-grid flip">
+        <div class="copy">
+          <h2>In colour, too</h2>
+          <p>Point Piccasso at your program's colour wheel or colour sliders and it finds them on screen by itself. It then picks each colour of the picture and paints it with smooth, unbroken strokes.</p>
+          <p>Brush size doesn't need a pixel number: Piccasso paints a test dab, measures how wide it came out, and plans every stroke around it. A full picture takes about one to three minutes.</p>
+          <p class="note" style="margin-top:18px">tick “Record timelapse” and the app saves a clip like this one</p>
+        </div>
+        <div class="frame" data-rough>
+          <video data-play src="media/replica-color.mp4" poster="media/replica-color.jpg" muted loop playsinline preload="none" aria-label="Timelapse recorded by the desktop app: the pear and mug painted colour by colour with the real mouse"></video>
+          <span class="note" style="right:-4px; bottom:-26px; transform:rotate(-2deg)">the app's own timelapse</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spread" id="tools">
+    <div class="wrap">
+      <h2>A whole <span class="underline">drawing desk<svg viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><path class="s-ink doodle-draw" pathLength="1" d="M2 5c18-3 38-4 58-2s30 4 38 2"/></svg></span> beside your paper</h2>
+      <p style="color:var(--lead); max-width:60ch; margin-top:18px">Beyond the guided steps, Piccasso has six tools for practising, planning and checking your work. All of them are in both the web app and the desktop app.</p>
+      <div class="tools">
+        <a class="tool" href="#studio" data-rough>
+          <svg class="doodle" viewBox="0 0 64 64" aria-hidden="true"><rect class="s-ink doodle-draw" pathLength="1" x="8" y="12" width="48" height="40" rx="3"/><path class="s-ink doodle-draw" pathLength="1" d="M14 46l12-14 9 9 6-6 9 11"/><path class="s-hatch doodle-draw" pathLength="1" d="M36 16l16 16M42 16l10 10M48 16l4 4"/></svg>
+          <h3>Studio</h3><p>Turn a photo into a pencil sketch, edges, contours, three values, halftone and more.</p>
+        </a>
+        <a class="tool" href="#guides" data-rough>
+          <svg class="doodle" viewBox="0 0 64 64" aria-hidden="true"><path class="s-light doodle-draw" pathLength="1" d="M2 24h60"/><path class="s-ink doodle-draw" pathLength="1" d="M4 24L28 34v18L4 24M60 24L28 34M60 24L28 52M28 34v18"/><path class="s-light doodle-draw" pathLength="1" d="M4 24l44 10M60 24L14 34" opacity=".5"/></svg>
+          <h3>Guides</h3><p>Perspective with draggable vanishing points, face and figure proportions, composition grids.</p>
+        </a>
+        <a class="tool" href="#practice" data-rough>
+          <svg class="doodle" viewBox="0 0 64 64" aria-hidden="true"><circle class="s-ink doodle-draw" pathLength="1" cx="32" cy="36" r="22"/><path class="s-ink doodle-draw" pathLength="1" d="M28 8h8M32 8v6M32 36l9-11"/><path class="s-hatch doodle-draw" pathLength="1" d="M32 18v3M50 36h-3M32 54v-3M14 36h3"/></svg>
+          <h3>Timed practice</h3><p>Gesture sessions with a new mannequin pose every 30 seconds, or your own pictures.</p>
+        </a>
+        <a class="tool" href="#sandbox" data-rough>
+          <svg class="doodle" viewBox="0 0 64 64" aria-hidden="true"><path class="s-ink doodle-draw" pathLength="1" d="M32 8l20 10v24L32 54 12 42V18zM12 18l20 10 20-10M32 28v26"/><path class="s-hatch doodle-draw" pathLength="1" d="M36 34l12-6M36 40l12-6M36 46l12-6"/></svg>
+          <h3>3D sandbox</h3><p>Turn cubes, spheres and cylinders under a movable light and see their vanishing points.</p>
+        </a>
+        <a class="tool" href="#lessons" data-rough>
+          <svg class="doodle" viewBox="0 0 64 64" aria-hidden="true"><path class="s-ink doodle-draw" pathLength="1" d="M6 56h14V42h14V28h14V14h10"/><path class="s-ink doodle-draw" pathLength="1" d="M10 36l5 5 9-11"/><circle class="s-ink doodle-draw" pathLength="1" cx="52" cy="8" r="3"/></svg>
+          <h3>Skill tree</h3><p>30 short lessons in 10 subjects, opening one after another as you learn.</p>
+        </a>
+        <a class="tool" href="#analyze" data-rough>
+          <svg class="doodle" viewBox="0 0 64 64" aria-hidden="true"><path class="s-light doodle-draw" pathLength="1" d="M4 52h56"/><path class="s-ink doodle-draw" pathLength="1" d="M4 50c6 0 8-6 12-6s6-10 10-10 4 12 9 12 6-28 10-28 4 32 15 32"/><circle class="s-ink doodle-draw" pathLength="1" cx="44" cy="20" r="9"/><path class="s-ink doodle-draw" pathLength="1" d="M50 27l8 8"/></svg>
+          <h3>Analyze</h3><p>Compare a photo of your drawing with the reference: values, symmetry, grids, colours.</p>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="spread" id="studio">
+    <div class="wrap">
+      <div class="spread-grid">
+        <div class="copy">
+          <h2>Sixteen ways to see a picture</h2>
+          <p>Studio turns any photo into a clearer reference: pencil sketch, edge detection, contours, three values, colour to value, posterize, crosshatching, halftone, silhouette, negative space, background removal, anime simplify and more.</p>
+          <p>Every conversion has its own sliders, can be limited to one region of the picture, and can be saved as a PNG or printed at the right size.</p>
+          <div class="chip-row" aria-hidden="true"><span>Pencil sketch</span><span>Edges</span><span>Contours</span><span>Three values</span><span>Halftone</span><span>Crosshatch</span><span>Silhouette</span><span>Negative space</span></div>
+        </div>
+        <div class="frame" data-rough>
+          <video data-play src="media/studio.mp4" poster="media/studio.jpg" muted loop playsinline preload="none" aria-label="Screen recording: the demo picture shown as pencil sketch, edges, contours, values, crosshatching, halftone and silhouette"></video>
+          <span class="note" style="right:-4px; bottom:-26px; transform:rotate(-2deg)">one picture, many references</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spread" id="guides">
+    <div class="wrap">
+      <div class="spread-grid flip">
+        <div class="copy">
+          <h2>Guides that do the measuring</h2>
+          <p>Lay construction guides over your picture or a blank page. Drag the vanishing points and horizon for one-, two- or three-point perspective. Fit a face box for classic proportions, or a figure box for a 6, 7 or 8-head figure.</p>
+          <p>Thirds, golden ratio, symmetry and diagonal grids help with composition, and a line-weight sheet shows which pencil makes which line.</p>
+          <svg class="sketch" viewBox="0 0 360 170" role="img" aria-label="A box drawn in two-point perspective: its edges run back to two vanishing points on the horizon">
+            <path class="s-light doodle-draw" pathLength="1" d="M4 60h352" opacity=".45"/>
+            <path class="s-light doodle-draw" pathLength="1" d="M14 60L176 92M14 60L176 160M346 60L176 92M346 60L176 160M14 60L262 104M346 60L94 104" opacity=".35"/>
+            <path class="s-ink doodle-draw" pathLength="1" d="M176 92v68M94 76v56l82 28 86-30V77l-86 15-82-16M94 76l84-11 84 12"/>
+            <circle cx="14" cy="60" r="5" fill="#1c1c1b"/><circle cx="346" cy="60" r="5" fill="#1c1c1b"/>
+          </svg>
+          <p class="note" style="margin-top:4px">drag the dots, every line follows</p>
+        </div>
+        <div class="frame" data-rough>
+          <video data-play src="media/guides.mp4" poster="media/guides.jpg" muted loop playsinline preload="none" aria-label="Screen recording: perspective guides with draggable vanishing points, then face, figure, line-weight and composition guides"></video>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spread" id="practice">
+    <div class="wrap">
+      <div class="spread-grid">
+        <div class="copy">
+          <h2>Thirty seconds a pose</h2>
+          <p>Timed practice trains your eye to catch the whole movement before the details. Piccasso shows a jointed mannequin in a new, natural pose each round, with its line of action, or cycles through your own pictures.</p>
+          <p>Pick 30-second gestures, 1, 2 or 5-minute studies, or a warm-up ladder. Mirror the reference or show only its silhouette, and hear a soft beep when the pose changes.</p>
+          <svg class="sketch" viewBox="0 0 360 170" role="img" aria-label="A quick gesture figure drawn along one curved line of action, next to a running stopwatch">
+            <path class="s-light doodle-draw" pathLength="1" d="M70 150c10-40 20-80 60-120" stroke-dasharray="4 5" opacity=".5"/>
+            <circle class="s-ink doodle-draw" pathLength="1" cx="132" cy="24" r="11"/>
+            <path class="s-ink doodle-draw" pathLength="1" d="M128 36c-10 24-20 44-26 62M120 52l-30 14M122 50l32-6 14 20M102 98l-28 22-6 26M102 98l22 24 24 10"/>
+            <g transform="translate(270 92)"><circle class="s-ink doodle-draw" pathLength="1" r="44"/><path class="s-ink" d="M-6 -56h12M0 -56v12"/><line class="hand" x1="0" y1="0" x2="0" y2="-32" stroke="#1c1c1b" stroke-width="3" stroke-linecap="round"/><circle r="3.5" fill="#1c1c1b"/></g>
+          </svg>
+        </div>
+        <div class="frame" data-rough>
+          <video data-play src="media/practice.mp4" poster="media/practice.jpg" muted loop playsinline preload="none" aria-label="Screen recording: a timed practice session showing a new mannequin pose each round"></video>
+          <span class="note" style="right:-4px; bottom:-26px; transform:rotate(-2deg)">a new pose every round</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spread" id="sandbox">
+    <div class="wrap">
+      <div class="spread-grid flip">
+        <div class="copy">
+          <h2>Shapes you can walk around</h2>
+          <p>Before you draw a box from a strange angle, build it. The 3D sandbox has cubes, spheres, cylinders, cones and pyramids you can place, turn and stretch. Drag to walk around them; switch to wireframe to see the hidden edges, or silhouette to see the shape alone.</p>
+          <p>Move the light to watch the form shadows and cast shadows change, and turn on vanishing points to see exactly where a shape's edges meet.</p>
+          <svg class="sketch" id="cube3d" viewBox="0 0 360 215" role="img" aria-label="A wireframe cube slowly turning, with its edges extended back to their vanishing points"></svg>
+        </div>
+        <div class="frame" data-rough>
+          <video data-play src="media/sandbox.mp4" poster="media/sandbox.jpg" muted loop playsinline preload="none" aria-label="Screen recording: orbiting a cube, sphere and cylinder, then wireframe, silhouette, moving the light and showing vanishing points"></video>
+          <span class="note" style="right:-4px; bottom:-26px; transform:rotate(-2deg)">drag to walk around</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spread" id="lessons">
+    <div class="wrap">
+      <div class="spread-grid">
+        <div class="copy">
+          <h2>Learn in the right order</h2>
+          <p>The skill tree has 30 short lessons in 10 subjects: basic shapes, lines, proportion, perspective, light and shadow, shading, texture, composition, anatomy and gesture, and advanced techniques. Each lesson has a goal, a few clear steps and a button that opens the right tool.</p>
+          <p>Lessons open as you finish the ones before them. Keep notes on each one, save favourites to your own practice set, and collect milestones along the way.</p>
+          <ol class="tree" aria-label="The first lessons in order">
+            <li class="done">Circles and ellipses</li><li class="done">Confident lines</li><li class="now">Boxes in space</li><li>One-point perspective</li><li>Light, form shadow and cast shadow</li>
+          </ol>
+        </div>
+        <div class="frame" data-rough>
+          <video data-play src="media/lessons.mp4" poster="media/lessons.jpg" muted loop playsinline preload="none" aria-label="Screen recording: the skill tree, then a lesson opened, a note typed and the lesson marked as done"></video>
+          <span class="note" style="right:-4px; bottom:-26px; transform:rotate(-2deg)">30 lessons, 10 subjects</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spread" id="analyze">
+    <div class="wrap">
+      <div class="spread-grid flip">
+        <div class="copy">
+          <h2>An honest second look</h2>
+          <p>Take a photo of your drawing and put it next to the reference. Piccasso measures both: brightness, contrast, darkest dark and lightest light, and how much of the picture sits in each value. Then it tells you in plain words what to change, like “use a softer pencil in the darkest areas”.</p>
+          <p>A symmetry map shows which side drifted, matching grids help you find proportion errors, and the sampler reads the colour and value of any spot.</p>
+          <div class="bars" aria-hidden="true">
+            <div><span style="--v:.82"></span><span class="mine" style="--v:.38"></span><em>darks</em></div>
+            <div><span style="--v:.55"></span><span class="mine" style="--v:.30"></span><em>middles</em></div>
+            <div><span style="--v:.68"></span><span class="mine" style="--v:.96"></span><em>lights</em></div>
+          </div>
+          <p class="note" style="margin-top:6px">grey: reference · hatched: your drawing</p>
+        </div>
+        <div class="frame" data-rough>
+          <video data-play src="media/analyze.mp4" poster="media/analyze.jpg" muted loop playsinline preload="none" aria-label="Screen recording: a drawing compared with the reference using symmetry, grid and value tools, then written advice"></video>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spread" id="yours">
+    <div class="wrap">
+      <div class="spread-grid">
+        <div class="copy">
+          <h2>Make it yours</h2>
+          <p>Choose Light, Dark, Paper or Graphite, any accent colour, and a larger interface or bigger instruction text. Projects live in folders with tags, favourites and notes, and you can search them.</p>
+          <ul>
+            <li><svg viewBox="0 0 22 22" aria-hidden="true"><path class="s-ink" d="M3 12l5 5L19 5"/></svg><span><b>Updates from inside the app.</b> The desktop app checks for a new release, verifies the download and restarts on the new version.</span></li>
+            <li><svg viewBox="0 0 22 22" aria-hidden="true"><path class="s-ink" d="M3 12l5 5L19 5"/></svg><span><b>Timelapse.</b> Tick one box and auto-draw or camera tracing is saved as a clip you can share.</span></li>
+            <li><svg viewBox="0 0 22 22" aria-hidden="true"><path class="s-ink" d="M3 12l5 5L19 5"/></svg><span><b>Works offline.</b> Install the web app and it keeps working without a connection.</span></li>
+          </ul>
+        </div>
+        <div class="frame" data-rough>
+          <video data-play src="media/themes.mp4" poster="media/themes.jpg" muted loop playsinline preload="none" aria-label="Screen recording: switching between Light, Paper, Graphite and Dark themes and accent colours"></video>
+          <span class="note" style="right:-4px; bottom:-26px; transform:rotate(-2deg)">paper, graphite, dark…</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spread" id="noai">
+    <div class="wrap">
+      <h2>No AI. <span class="underline">Just craft.<svg viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><path class="s-ink doodle-draw" pathLength="1" d="M2 6c22-5 42-5 62-2s26 3 34 0"/></svg></span></h2>
+      <p style="color:var(--lead); max-width:60ch; margin-top:18px">Piccasso doesn't generate pictures, guess what you meant or send anything away. Every guide comes from classic image processing and geometry, so the same picture always gives the same steps.</p>
+      <div class="craft">
+        <div><span class="num">edges</span><p>Sobel gradients and thresholds find the outlines.</p></div>
+        <div><span class="num">values</span><p>Histograms and thresholds split light, middle and dark.</p></div>
+        <div><span class="num">shapes</span><p>Connected regions, measured and fitted, become the big shapes.</p></div>
+        <div><span class="num">space</span><p>Projective geometry places perspective guides and the camera overlay.</p></div>
+      </div>
+    </div>
+  </section>
+
   <section class="spread">
     <div class="wrap">
       <h2>One project, two apps</h2>
@@ -361,7 +604,11 @@ footer .note { color: var(--graphite); }
             <tr><td>Camera tracing</td><td>Camera overlay everywhere, real AR on ARCore phones</td><td>Webcam or your phone as camera; phone as AR viewer</td></tr>
             <tr><td>Auto-draw with the mouse</td><td>Not possible in a browser</td><td><span class="mark">yes</span></td></tr>
             <tr><td>Exact replica with shades and opacity</td><td>Not possible in a browser</td><td><span class="mark">yes</span>, clicks your brush and opacity tools</td></tr>
-            <tr><td>Check a photo of your drawing</td><td><span class="mark">yes</span>, on the device</td><td><span class="mark">yes</span>, on the device</td></tr>
+            <tr><td>Analyze a photo of your drawing</td><td><span class="mark">yes</span>, on the device</td><td><span class="mark">yes</span>, on the device</td></tr>
+            <tr><td>Studio, Guides, Timed practice, 3D sandbox</td><td><span class="mark">yes</span></td><td><span class="mark">yes</span></td></tr>
+            <tr><td>Skill tree with 30 lessons</td><td><span class="mark">yes</span></td><td><span class="mark">yes</span>, same lessons</td></tr>
+            <tr><td>Timelapse recording</td><td>Camera tracing</td><td>Auto-draw and replica</td></tr>
+            <tr><td>Updates</td><td>Automatic, offered when you next open it</td><td>One click from inside the app</td></tr>
           </tbody>
         </table>
       </div>
@@ -496,11 +743,80 @@ cargo run --release -p piccasso-app</pre>
         io.unobserve(e.target);
       });
     }, { threshold: 0.35 });
-    document.querySelectorAll('.step, .underline, [data-rough]').forEach((el) => {
+    document.querySelectorAll('.step, .underline, .sketch, [data-rough]').forEach((el) => {
       const r = el.getBoundingClientRect();
       if (r.top > innerHeight) io.observe(el); // stays drawn until it replays on entering view
     });
     // rough frames are created above; prep those below the fold too
+  }
+
+
+  // Videos below the hero load and play only while on screen (saves data on phones).
+  const vids = document.querySelectorAll('video[data-play]');
+  if (reduced) vids.forEach((v) => { v.controls = true; });
+  else if ('IntersectionObserver' in window) {
+    const vio = new IntersectionObserver((entries) => entries.forEach((e) => {
+      const v = e.target;
+      if (e.isIntersecting) { v.preload = 'auto'; v.play().catch(() => { v.controls = true; }); } else v.pause();
+    }), { rootMargin: '200px 0px', threshold: 0.01 });
+    vids.forEach((v) => vio.observe(v));
+  } else vids.forEach((v) => { v.autoplay = true; v.play().catch(() => {}); });
+
+  // Analyze bars grow when they come into view.
+  const bars = document.querySelector('.bars');
+  if (bars && !reduced && 'IntersectionObserver' in window) {
+    const bio = new IntersectionObserver(([e]) => { if (e.isIntersecting) { bars.classList.add('grow'); bio.disconnect(); } }, { threshold: 0.5 });
+    bio.observe(bars);
+  }
+
+  // 3D sandbox: a turning wireframe cube with its edges run back to the vanishing points.
+  const cube = document.getElementById('cube3d');
+  if (cube) {
+    const NS2 = 'http://www.w3.org/2000/svg';
+    const W = 360, H = 215, f = 260, base = 122;
+    const V = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+    const E = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+    const mk = (cls, extra = {}) => { const e = document.createElementNS(NS2, 'line'); e.setAttribute('class', cls); for (const k in extra) e.setAttribute(k, extra[k]); cube.appendChild(e); return e; };
+    const pitch = 0.32, dist = 5.8, horizon = base - Math.tan(pitch) * f;
+    const hz = mk('s-light', { x1: 0, x2: W, y1: horizon, y2: horizon, opacity: '.4' });
+    const rays = Array.from({ length: 8 }, () => mk('s-light', { opacity: '.3' }));
+    const edges = E.map(() => mk('s-ink'));
+    const dots = [0, 1].map(() => { const c = document.createElementNS(NS2, 'circle'); c.setAttribute('r', '4.5'); c.setAttribute('fill', '#1c1c1b'); cube.appendChild(c); return c; });
+    const proj = (p, a) => {
+      const [x0, y0, z0] = p, c = Math.cos(a), s = Math.sin(a);
+      const x = x0 * c + z0 * s, z = -x0 * s + z0 * c;
+      const y = y0 * Math.cos(pitch) + z * Math.sin(pitch), zz = -y0 * Math.sin(pitch) + z * Math.cos(pitch) + dist;
+      return [W / 2 + x / zz * f, base - y / zz * f];
+    };
+    const vp = (dir, a) => { // direction (x,0,z) rotated, then tilted like the points
+      const c = Math.cos(a), s = Math.sin(a), x = dir[0] * c + dir[2] * s, z = -dir[0] * s + dir[2] * c;
+      const y = z * Math.sin(pitch), zz = z * Math.cos(pitch);
+      return Math.abs(zz) < 1e-3 ? null : [W / 2 + x / zz * f, base - y / zz * f];
+    };
+    const render = (a) => {
+      const P = V.map((p) => proj(p, a));
+      E.forEach(([i, j], k) => { const l = edges[k]; l.setAttribute('x1', P[i][0]); l.setAttribute('y1', P[i][1]); l.setAttribute('x2', P[j][0]); l.setAttribute('y2', P[j][1]); });
+      const vps = [vp([1, 0, 0], a), vp([0, 0, 1], a)].map((q, k) => (q && q[0] > -900 && q[0] < W + 900 ? q : null));
+      // the two families of horizontal edges: x-direction (0-1,3-2,4-5,7-6) and z-direction (0-4,1-5,2-6,3-7)
+      const fam = [[0, 1, 3, 2, 4, 5, 7, 6], [0, 4, 1, 5, 2, 6, 3, 7]];
+      let r = 0;
+      vps.forEach((q, k) => {
+        dots[k].setAttribute('opacity', q ? '1' : '0');
+        if (q) { dots[k].setAttribute('cx', q[0]); dots[k].setAttribute('cy', q[1]); }
+        for (let m = 0; m < 4; m++) {
+          const l = rays[r++], i = fam[k][m * 2], j = fam[k][m * 2 + 1];
+          if (!q) { l.setAttribute('opacity', '0'); continue; }
+          const near = Math.hypot(P[i][0] - q[0], P[i][1] - q[1]) > Math.hypot(P[j][0] - q[0], P[j][1] - q[1]) ? P[i] : P[j];
+          l.setAttribute('opacity', '.3'); l.setAttribute('x1', near[0]); l.setAttribute('y1', near[1]); l.setAttribute('x2', q[0]); l.setAttribute('y2', q[1]);
+        }
+      });
+    };
+    let a = 0.55, last = null, on = false;
+    render(a);
+    if (!reduced) {
+      const loop = (now) => { if (!on) { last = null; return; } if (last !== null) a += (now - last) * 0.00035; last = now; render(a); requestAnimationFrame(loop); };
+      new IntersectionObserver(([e]) => { const was = on; on = e.isIntersecting; if (on && !was) requestAnimationFrame(loop); }).observe(cube);
+    }
   }
 
   // Copy buttons
