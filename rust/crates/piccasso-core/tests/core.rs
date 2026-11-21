@@ -355,6 +355,10 @@ fn pen_timing_keeps_sampled_strokes_on_the_path() {
         // straight runs still go fast: total time well below a fixed-dwell pen
         assert!(t.len() as f64 * 0.001 < 3.0, "too slow");
     }
+    // a corner whose point is listed twice must still be held (it was skipped once)
+    let dup = vec![[0.0, 0.0], [70.0, 0.0], [70.0, 0.0], [70.0, 4.0], [0.0, 4.0], [0.0, 4.0], [0.0, 8.0], [70.0, 8.0]];
+    let t = timed_points(&dup, &lim, 0.001);
+    assert!(sampled_error(&dup, &t, 0.001, 60.0) <= 1.0, "duplicate corner cut: {}", sampled_error(&dup, &t, 0.001, 60.0));
     // naive constant-speed motion at the same top speed would cut corners badly
     let naive: Vec<[f64; 2]> = piccasso_core::strokes::densify(&zig, 4000.0 * 0.001);
     assert!(sampled_error(&zig, &naive, 0.001, 60.0) > 5.0);
@@ -483,6 +487,6 @@ fn soft_edges_count_by_ink() {
         let v = (255.0 * (1.0 - cov)).round() as u8;
         let i = (y * w + x) * 4; d[i] = v; d[i + 1] = v; d[i + 2] = v;
     } }
-    let wdt = stroke_width(&Rgba { width: w, height: h, data: d }, 10, 11, [255, 255, 255], 20);
+    let wdt = stroke_width(&Rgba { width: w, height: h, data: d }, 10, 11, [255, 255, 255], [0, 0, 0], 20);
     assert!((wdt - 3.6).abs() < 0.1, "{wdt}");
 }

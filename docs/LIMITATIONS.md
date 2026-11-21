@@ -13,7 +13,9 @@
 - Pencil-pressure percentages and grades are typical starting points, not measurements of your pencil or paper.
 
 ## Auto-draw
-- Works where the OS allows synthetic mouse input: Windows, macOS (grant Accessibility permission), Linux X11. Wayland sessions usually block it.
+- Works in any program that accepts the system mouse (it moves the real cursor, like your hand would): paint programs, image editors, browser whiteboards, remote desktops. The OS must allow synthetic input: Windows, macOS (grant Accessibility; Screen Recording for colour detection), Linux X11. Wayland sessions usually block it.
+- Exceptions on Windows: a program running as administrator ignores input from a normal program (run Piccasso as administrator too); some games and anti-cheat software block synthetic input entirely.
+- Every tool position is optional. With none recorded, Piccasso draws with the program's current brush and colour, and makes shades by stroke spacing.
 - It draws what Piccasso's strokes describe (outlines and line art), not shading or colour fills, and it relies on the target program's current brush.
 - Drawing programs read the mouse 60–240 times a second and join the readings with straight lines. Piccasso moves the mouse continuously and plans the speed so curves stay within half a pixel at the rate you set ("Program reads mouse", 60 by default); real corners get one reading-length pause. If curves look flattened, lower that number.
 - Colour replica uses a small palette (2–16 opaque paints), not a continuous blend of colours. Colour selection by clicking wheels and sliders reads the screen: this works on Linux/X11; on macOS (`screencapture`, needs Screen Recording permission) and Windows (PowerShell screen copy) it is implemented but untested, and display scaling other than 100 % can offset the clicks. The hex field mode needs no screen reading.

@@ -60,6 +60,12 @@ pub fn vertex_speeds(pts: &[[f64; 2]], lim: &PenLimits) -> (Vec<f64>, Vec<bool>)
 /// Positions of the pen every `dt` seconds along the stroke. Corners appear as
 /// the same point repeated for a little over one reading period.
 pub fn timed_points(pts: &[[f64; 2]], lim: &PenLimits, dt: f64) -> Vec<[f64; 2]> {
+    // repeated points would hide the corner they sit on (no turn can be measured
+    // across a zero-length segment), so drop them first
+    let mut uniq: Vec<[f64; 2]> = Vec::with_capacity(pts.len());
+    for &p in pts { if uniq.last().map_or(true, |q| dist(*q, p) > 0.05) { uniq.push(p); } }
+    if uniq.len() == 1 && pts.len() > 1 { uniq.push(*pts.last().unwrap()); }
+    let pts = &uniq[..];
     let n = pts.len();
     if n < 2 { return pts.to_vec(); }
     let (v, corner) = vertex_speeds(pts, lim);

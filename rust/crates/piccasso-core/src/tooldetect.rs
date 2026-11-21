@@ -163,9 +163,11 @@ pub fn sample(img: &Rgba, p: (i32, i32), r: i32) -> [u8; 3] {
 
 /// Thickness of a horizontal test stroke at column `x` around row `y`, in
 /// pixels of ink: soft (anti-aliased) edge pixels count by how much ink they
-/// hold, so a 3.8 px brush measures 3.8, not the 5-6 pixels it touches.
-pub fn stroke_width(img: &Rgba, x: i32, y: i32, paper: [u8; 3], max: i32) -> f64 {
+/// hold, so a 3.8 px brush measures 3.8, not the 5-6 pixels it touches. `ink`
+/// is the paint colour used for the test (a full-ink pixel counts as 1).
+pub fn stroke_width(img: &Rgba, x: i32, y: i32, paper: [u8; 3], ink: [u8; 3], max: i32) -> f64 {
     let p = [paper[0] as f64, paper[1] as f64, paper[2] as f64];
+    let ink_d = (0..3).map(|k| (p[k] - ink[k] as f64).abs()).fold(0.0, f64::max);
     let diff = |yy: i32| -> f64 {
         if yy < 0 || yy >= img.height as i32 { return 0.0; }
         let c = px(img, x, yy);
@@ -176,7 +178,7 @@ pub fn stroke_width(img: &Rgba, x: i32, y: i32, paper: [u8; 3], max: i32) -> f64
     while y - lo < max && diff(lo - 1) > 12.0 { lo -= 1; }
     let mut hi = y;
     while hi - y < max && diff(hi + 1) > 12.0 { hi += 1; }
-    let full = (lo..=hi).map(diff).fold(0.0, f64::max);
+    let full = (lo..=hi).map(diff).fold(0.0, f64::max).max(ink_d);
     (lo..=hi).map(|yy| (diff(yy) / full).min(1.0)).sum()
 }
 

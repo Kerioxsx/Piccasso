@@ -434,7 +434,7 @@ pub fn calibrate_size(tools: &Tools, cancel: &AtomicBool, log: &dyn Fn(String)) 
         strokes += 1;
         std::thread::sleep(Duration::from_millis(150));
         let img = crate::screen_pick::capture_screen().ok_or("screen capture failed")?;
-        let w = stroke_width(&img, (x0 + x1) / 2, cy, paper, half);
+        let w = stroke_width(&img, (x0 + x1) / 2, cy, paper, [0, 0, 0], half);
         log(format!("slider {:>3.0}% -> {w:.0} px", t * 100.0));
         if w <= 0.0 { continue; }
         pts.push((t, w));
@@ -494,7 +494,10 @@ pub fn run_replica(plan: ReplicaPlan, org: [f64; 2], tools: Tools, mode: Opacity
     std::thread::sleep(Duration::from_millis(400));
     let mut run = || -> Result<(), String> {
         for (li, layer) in plan.layers.iter().enumerate() {
-            set_layer(&mut pen, layer.rgb, layer.opacity, Some(li), layer.fine, Some(layer.brush))?;
+            // fills ask for half a pixel more than planned: they stay inside their area
+            // by a safety margin, and the extra overlap closes hairline gaps between rows
+            let size = if layer.fine { layer.brush } else { layer.brush + 0.5 };
+            set_layer(&mut pen, layer.rgb, layer.opacity, Some(li), layer.fine, Some(size))?;
             for p in &layer.paths {
                 let pts: Vec<[f64; 2]> = p.iter().map(|q| [org[0] + q[0], org[1] + q[1]]).collect();
                 pen.stroke(&pts)?;
