@@ -27,6 +27,7 @@ const routes = {
   studio: () => import('./ui/screens/studio.js').then((m) => m.renderStudio),
   guides: () => import('./ui/screens/guides.js').then((m) => m.renderGuides),
   practice: () => import('./ui/screens/practice.js').then((m) => m.renderPractice),
+  sandbox: () => import('./ui/screens/sandbox.js').then((m) => m.renderSandbox),
 };
 const NEEDS_PROJECT = new Set(['prepare', 'process', 'workspace', 'locked', 'ar', 'compare']);
 
