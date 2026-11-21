@@ -261,7 +261,7 @@ fn mouse_location() -> Result<(i32, i32), String> {
 }
 
 /// Pause at corners (ms) so the target program registers every turn.
-pub static DWELL_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(25);
+pub static DWELL_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(15);
 /// How many times a second the drawing program reads the mouse (60 is safe for most).
 pub static READ_HZ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(60);
 
@@ -359,10 +359,13 @@ mod pen {
             let lim = piccasso_core::penpath::PenLimits { speed: self.speed, hz, tol: 0.5, ramp_px: 40.0 };
             let dt = 0.001;
             let timed = piccasso_core::penpath::timed_points(pts, &lim, dt);
+            // pen down: the program must read the new position once (one reading
+            // period), then the button press is an event it gets at once
+            let read = Duration::from_secs_f64(1.2 / hz);
             self.go(pts[0][0].round() as i32, pts[0][1].round() as i32);
-            std::thread::sleep(self.dwell.max(Duration::from_millis(12)));
+            std::thread::sleep(read.max(self.dwell.min(Duration::from_millis(80))));
             let _ = self.e.button(Button::Left, Direction::Press);
-            std::thread::sleep(self.dwell);
+            std::thread::sleep(Duration::from_millis(4));
             let t0 = Instant::now();
             let mut last = (i32::MIN, i32::MIN);
             for (k, p) in timed.iter().enumerate() {
@@ -382,9 +385,10 @@ mod pen {
                     return Err(STOPPED.into());
                 }
             }
-            std::thread::sleep(self.dwell);
+            // pen up: hold the last point for one reading so the stroke reaches its end
+            std::thread::sleep(read);
             let _ = self.e.button(Button::Left, Direction::Release);
-            std::thread::sleep(Duration::from_millis(8));
+            std::thread::sleep(Duration::from_millis(4));
             Ok(())
         }
     }
