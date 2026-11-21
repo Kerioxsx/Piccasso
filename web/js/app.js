@@ -29,6 +29,7 @@ const routes = {
   practice: () => import('./ui/screens/practice.js').then((m) => m.renderPractice),
   sandbox: () => import('./ui/screens/sandbox.js').then((m) => m.renderSandbox),
   skills: () => import('./ui/screens/skills.js').then((m) => m.renderSkills),
+  analyze: () => import('./ui/screens/analyze.js').then((m) => m.renderAnalyze),
 };
 const NEEDS_PROJECT = new Set(['prepare', 'process', 'workspace', 'locked', 'ar', 'compare']);
 

@@ -320,3 +320,20 @@ a { text-underline-offset: 3px; }
 .skills-steps label { display: flex; gap: 10px; align-items: start; }
 .skills-steps input { margin-top: 4px; width: 20px; height: 20px; flex: none; }
 .lead { font-size: 1.15rem; }
+
+/* Analyze */
+.an-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.an-slot { margin: 0; display: grid; gap: 4px; }
+.an-canvas { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); background: var(--card); cursor: crosshair; }
+.an-hist { width: 100%; max-width: 640px; height: auto; border: 1px solid var(--line); border-radius: 8px; }
+.an-table { border-collapse: collapse; width: 100%; max-width: 640px; }
+.an-table th, .an-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.an-tips { display: grid; gap: 6px; padding-left: 1.2em; }
+.an-tips li[data-level="big"] { font-weight: 600; }
+.an-tips li[data-level="good"] { color: var(--accent); }
+.an-sample { display: flex; gap: 12px; align-items: center; }
+.an-swatch { width: 56px; height: 56px; border-radius: 10px; border: 1px solid var(--line); flex: none; }
+.an-pins { display: grid; gap: 6px; padding-left: 1.6em; }
+.an-pins li > * { vertical-align: middle; }
+.an-pins input { width: min(100%, 420px); }
+@media (max-width: 640px) { .an-grid { grid-template-columns: 1fr; } }

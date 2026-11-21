@@ -64,9 +64,10 @@ Legend: ✅ done · 🟡 partly done · ⬜ to build. "Web" = installable web ap
 ## 6. Drawing analysis (no AI)
 | Feature | Status |
 |---|---|
-| Reference vs drawing comparison: side by side, opacity, difference overlay, alignment | ✅ |
+| Reference vs drawing comparison: side by side, opacity, difference overlay, alignment | ✅ (Check photo) |
 | Grayscale comparison | ✅ |
-| Histogram, brightness distribution, contrast analysis, symmetry, grid comparison, manual measurements and annotations, colour sampling | ⬜ |
+| **Analyze**: value histograms of both, brightness distribution, contrast, darkest/lightest values, dark/mid/light shares, and rule-based advice ("your darks are too light…") | ✅ |
+| Symmetry check (mirror line, difference heat map, score), matching grids with cell labels, measurements in % of width and cm with ratios, colour and value sampler, annotation pins with notes | ✅ |
 
 ## 7. 3D construction sandbox
 ✅ **3D** screen: cube, sphere, cylinder, cone, pyramid; any combination; move, turn, tilt and scale each shape; orbit camera (drag), zoom (wheel/pinch); perspective with adjustable lens or orthographic; vanishing points and horizon of the selected shape; movable light with flat shading and ground shadows; solid, wireframe and silhouette views; construction lines (each shape's axes); ground grid; scenes saved on the device; PNG screenshots. Rendering is plain canvas geometry (no WebGL needed).
@@ -99,6 +100,6 @@ Privacy: local-first, no account, no data collection, camera permission explaine
 2. ~~Gesture and timed practice~~ (done: Practice).
 3. ~~3D construction sandbox~~ (done: 3D).
 4. ~~Skill tree, lessons and exercises~~ (done: Learn → Skill tree).
-5. Analysis tools: histogram, symmetry, measurements (§6).
+5. ~~Analysis tools~~ (done: Analyze).
 6. Workspace themes (paper, graphite, accent colours), library folders/tags/version history.
 7. Desktop ports of the Studio and the new web modules.
