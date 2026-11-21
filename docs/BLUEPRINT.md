@@ -20,7 +20,7 @@ Legend: ✅ done · 🟡 partly done · ⬜ to build. "Web" = installable web ap
 | Smart zoom (magnify, keep alignment) | ✅ | Locked view pinch zoom; Guides magnifier (3× loupe) |
 | Crop to paper / paper calibration | ✅ | Prepare (paper sizes in cm, bank-card measure), AR corner calibration |
 | Line weight guide | ✅ | Pencil-pressure step; Guides → printable line-weight chart |
-| Gesture drawing mode | ⬜ | planned with timed practice (§11) |
+| Gesture drawing mode | ✅ | Practice → gesture timers with mannequin or your own references |
 | Step rewind / checkpoints / hints / beginner mode | ✅ | Steps with back/next, saved progress, tips, glossary |
 
 ## 2. Image conversion and processing
@@ -81,7 +81,7 @@ Overlay opacity, grid spacing, paper dimensions, text scale and motion are adjus
 Style presets exist (sketch, realistic, anime, etc.) 🟡. Dedicated portrait / landscape / still life / figure / architecture / manga / technical / symmetry modes ⬜.
 
 ## 11. Gesture and timed practice
-⬜ All items (30 s – 5 min timers, random reference rotation, pose collections, session history, statistics, pause/resume).
+✅ **Practice** screen: 30 s / 1 min / 2 min / 5 min presets, a 30 s → 5 min warm-up ladder and custom timers; random reference rotation; your own pose collection (stored on the device), the current project, or a built-in procedural mannequin in random natural poses with its line of action; silhouette and mirror practice; pause/resume, next, keyboard shortcuts; session history and statistics (total and weekly minutes, poses, day streak). ⬜ Bundled anatomy reference library.
 
 ## 12. Export and sharing
 Guides, steps, project files, print/PDF guide, images, timelapses ✅. Studio PNG and 2× export ✅. Progress comparison export, print-ready paper templates 🟡.
@@ -93,7 +93,7 @@ Privacy: local-first, no account, no data collection, camera permission explaine
 
 ## Build order (next)
 1. ~~Perspective and proportion guide overlays; line-weight chart~~ (done: Guides).
-2. Gesture and timed practice (§11) with pose/reference collections from the user's own pictures.
+2. ~~Gesture and timed practice~~ (done: Practice).
 3. 3D construction sandbox (§7).
 4. Skill tree, lessons and exercises (§5).
 5. Analysis tools: histogram, symmetry, measurements (§6).
