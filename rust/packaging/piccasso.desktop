@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Piccasso
+Comment=Drawing coach and auto-draw
+Exec=piccasso
+Icon=piccasso
+Categories=Graphics;Education;
+Terminal=false

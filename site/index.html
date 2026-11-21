@@ -383,8 +383,9 @@ footer .note { color: var(--graphite); }
             <a class="btn solid" data-dl="Piccasso-windows.zip" href="#run">Download for Windows</a>
             <a class="btn" data-dl="Piccasso-macos.zip" href="#run">macOS</a>
             <a class="btn" data-dl="Piccasso-linux.tar.gz" href="#run">Linux</a>
+            <a class="btn" data-dl="Piccasso-linux-arm64.tar.gz" href="#run">Linux ARM</a>
           </p>
-          <p style="font-size:.9rem;color:var(--lead)">Windows: unzip and run <b>piccasso.exe</b> (choose "More info → Run anyway" if SmartScreen asks; the app isn't code-signed). To draw into a program running as administrator, run Piccasso as administrator too. macOS: allow Accessibility (mouse) and Screen Recording (colour detection) when asked.</p>
+          <p style="font-size:.9rem;color:var(--lead)">Windows: unzip and run <b>piccasso.exe</b> (choose "More info → Run anyway" if SmartScreen asks; the app isn't code-signed). To draw into a program running as administrator, run Piccasso as administrator too. macOS (Apple Silicon and Intel): drag Piccasso.app to Applications, then right-click → Open the first time (it isn't notarised); allow Accessibility (mouse) and Screen Recording (colour detection) when asked. Linux: unpack and run <b>./piccasso</b>, or <b>./install-linux.sh</b> to add it to your app menu.</p>
           <details><summary>Build it yourself</summary>
           <pre id="cmd-rust">cd rust
 cargo run --release -p piccasso-app</pre>
