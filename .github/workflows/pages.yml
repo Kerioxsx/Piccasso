@@ -12,11 +12,10 @@ concurrency:
   group: pages
   cancel-in-progress: true
 jobs:
-  deploy:
+  # build and publish are separate jobs: deploy-pages looks the upload up through
+  # the API, which can lag behind an upload made moments earlier in the same job
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - name: Assemble the site
@@ -24,7 +23,7 @@ jobs:
           mkdir -p _site/app
           cp -r site/. _site/
           cp -r web/. _site/app/
-          rm -f _site/README.md _site/app/README.md
+          rm -rf _site/README.md _site/app/README.md _site/app/tests
           touch _site/.nojekyll
           # a new cache name on every deploy, so installed web apps pick up the update
           sed -i "s/const VERSION = '[^']*'/const VERSION = 'piccasso-${GITHUB_SHA::12}'/" _site/app/sw.js
@@ -33,5 +32,12 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
