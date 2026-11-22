@@ -41,6 +41,14 @@ pub struct OverlayState {
     init: bool,
     composite: Option<Rgba>,
     phone_source: bool,
+    frozen: bool,
+    zoom: f32,
+    pan: egui::Vec2,
+    hand: bool,
+    hand_gen: u64,
+    hint: Option<(&'static str, String)>,
+    hint_dismissed: Option<&'static str>,
+    last_hint: Option<Instant>,
 }
 impl Default for OverlayState {
     fn default() -> Self {
@@ -51,6 +59,7 @@ impl Default for OverlayState {
             frame_gen: 0, media: None, corners: None, scale: 1.0, rotation: 0.0, offset: [0.0, 0.0], opacity: 0.5,
             layers: ["outline"].into_iter().collect(), composite_key: String::new(), calibrating: false, follow: false, locked: false,
             last_detect: None, status: ("Starting…".into(), Color32::GRAY), drag_handle: None, init: false, composite: None, phone_source: false,
+            frozen: false, zoom: 1.0, pan: egui::Vec2::ZERO, hand: false, hand_gen: 0, hint: None, hint_dismissed: None, last_hint: None,
         }
     }
 }
@@ -114,11 +123,11 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
     // Media: latest camera frame or the chosen photo.
     #[cfg(feature = "camera")]
     if let Some(feed) = &st.feed {
-        if let Some((n, img)) = feed.latest() { if n != st.frame_gen { st.frame_gen = n; let _ = app.textures.set(ctx, "overlay-media", &img); st.media = Some(img); } }
+        if let Some((n, img)) = feed.latest() { if n != st.frame_gen && !st.frozen { st.frame_gen = n; let _ = app.textures.set(ctx, "overlay-media", &img); st.media = Some(img); } }
         if let Some(e) = feed.error() { status(st, &format!("Camera error: {e}"), Color32::RED); }
         ctx.request_repaint_after(Duration::from_millis(33));
     }
-    if let Some((g, img)) = ph.frame_after(ph.last_gen) {
+    if let Some((g, img)) = ph.frame_after(ph.last_gen).filter(|_| !st.frozen) {
         ph.last_gen = g;
         #[cfg(feature = "camera")]
         { st.feed = None; }
@@ -136,6 +145,25 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
         st.composite = Some(c);
         st.composite_key = key;
     }
+    // Hand in front of the guide (skin-colour cut-out of the live frame) and lighting hints.
+    let live = !st.frozen && st.photo.is_none() && st.media.is_some();
+    if st.hand && live && st.hand_gen != st.frame_gen + ph.last_gen {
+        st.hand_gen = st.frame_gen + ph.last_gen;
+        if let Some(m) = &st.media {
+            let (w, h) = fit_dims(m.width, m.height, 320);
+            match piccasso_core::camera::hand_cutout(&resize_box(m, w, h)) { Some(c) => { let _ = app.textures.set(ctx, "overlay-hand", &c); } None => app.textures.remove("overlay-hand") }
+        }
+    }
+    if live && st.last_hint.map_or(true, |t| t.elapsed() > Duration::from_millis(1500)) {
+        st.last_hint = Some(Instant::now());
+        if let Some(m) = &st.media {
+            let (w, h) = fit_dims(m.width, m.height, 200);
+            let hs = piccasso_core::camera::lighting_hints(&piccasso_core::camera::frame_stats(&piccasso_core::imgproc::to_gray(&resize_box(m, w, h))));
+            if hs.is_empty() { st.hint_dismissed = None; }
+            st.hint = hs.into_iter().find(|h| Some(h.0) != st.hint_dismissed);
+        }
+    }
+    if !live { st.hint = None; }
     let layout = paper_layout(&sess.project.prep.paper, &shared().paper.presets, sess.project.analysis.as_ref().map(|a| a.aspect).unwrap_or(1.0), shared().paper.default_margin_mm);
 
     egui::TopBottomPanel::top("ov-top").show(ctx, |ui| {
@@ -144,6 +172,11 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
             ui.label(RichText::new(format!("● {}", st.status.0)).color(st.status.1).strong());
             ui.separator();
             ui.label(RichText::new(&cap.status).small());
+            if let Some((id, text)) = st.hint.clone() {
+                ui.separator();
+                ui.label(RichText::new(format!("💡 {text}")).color(Color32::from_rgb(0xef, 0x6c, 0x00)).strong());
+                if ui.small_button("Dismiss").clicked() { st.hint_dismissed = Some(id); st.hint = None; }
+            }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.selectable_label(ph.open, "📱 Use my phone").on_hover_text("Use your phone as this computer's camera, or as an AR viewer of the guide").clicked() {
                     ph.open = !ph.open;
@@ -197,6 +230,12 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
             });
             if ui.checkbox(&mut st.locked, "Lock alignment").changed() && st.locked { st.follow = false; }
         });
+        ui.horizontal_wrapped(|ui| {
+            if ui.add_enabled(st.media.is_some() && st.photo.is_none(), egui::SelectableLabel::new(st.frozen, if st.frozen { "Back to live" } else { "Freeze frame" })).on_hover_text("Hold the current camera picture still so you can zoom in and check details").clicked() { st.frozen = !st.frozen; }
+            if ui.add(egui::Slider::new(&mut st.zoom, 1.0..=4.0).text("Zoom").custom_formatter(|v, _| format!("{:.0}%", v * 100.0))).changed() && st.zoom <= 1.0 { st.pan = egui::Vec2::ZERO; }
+            if ui.checkbox(&mut st.hand, "Show my hand in front of the guide").on_hover_text("Finds skin-coloured areas in the camera picture and draws them over the guide").changed() && !st.hand { app.textures.remove("overlay-hand"); }
+            if st.zoom > 1.0 { ui.label(RichText::new(if st.locked { "Drag the picture to look around." } else { "Lock alignment, then drag to look around." }).small().weak()); }
+        });
         ui.collapsing("About the camera overlay", |ui| { ui.label(RichText::new(LIMITS).small()); for r in &cap.reasons { ui.label(RichText::new(r).small().weak()); } });
     });
 
@@ -242,7 +281,10 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
         let painter = ui.painter_at(area);
         let media_rect = match &st.media {
             Some(m) => {
-                let r = compute_rect(area, m.width as f32, m.height as f32, &View::default(), 0.0);
+                let r0 = compute_rect(area, m.width as f32, m.height as f32, &View::default(), 0.0);
+                let lim = r0.size() * (st.zoom - 1.0) / 2.0;
+                st.pan = egui::vec2(st.pan.x.clamp(-lim.x, lim.x), st.pan.y.clamp(-lim.y, lim.y));
+                let r = Rect::from_center_size(r0.center() + st.pan, r0.size() * st.zoom);
                 if let Some(t) = app.textures.id("overlay-media") { painter.image(t, r, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE); }
                 r
             }
@@ -254,6 +296,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
         let to_screen = |p: [f64; 2]| pos2(media_rect.min.x + p[0] as f32 * media_rect.width(), media_rect.min.y + p[1] as f32 * media_rect.height());
         let from_screen = |p: Pos2| [((p.x - media_rect.min.x) / media_rect.width()) as f64, ((p.y - media_rect.min.y) / media_rect.height()) as f64];
         // Interaction
+        if st.locked && st.zoom > 1.0 && resp.dragged() { st.pan += resp.drag_delta(); }
         if !st.locked {
             if resp.drag_started() {
                 st.drag_handle = None;
@@ -266,7 +309,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                 match (st.drag_handle, st.corners.as_mut()) {
                     (Some(i), Some(c)) => { let p = to_screen(c[i]) + d; c[i] = from_screen(p); }
                     (None, Some(c)) => { for q in c.iter_mut() { let p = to_screen(*q) + d; *q = from_screen(p); } }
-                    _ => { st.offset[0] += d.x as f64; st.offset[1] += d.y as f64; }
+                    _ => { st.offset[0] += (d.x / st.zoom) as f64; st.offset[1] += (d.y / st.zoom) as f64; }
                 }
             }
             if resp.drag_stopped() { if let Some(c) = st.corners { st.corners = Some(order_corners(&c)); } st.drag_handle = None; }
@@ -290,10 +333,12 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                 let (mw, mh) = (media_rect.width() as f64 * 0.8, media_rect.height() as f64 * 0.8);
                 let (w, h) = if mw / mh > aspect { (mh * aspect, mh) } else { (mw, mw / aspect) };
                 let c = media_rect.center();
-                transformed_rect(c.x as f64 + st.offset[0], c.y as f64 + st.offset[1], w, h, st.scale, st.rotation)
+                let z = st.zoom as f64;
+                transformed_rect(c.x as f64 + st.offset[0] * z, c.y as f64 + st.offset[1] * z, w, h, st.scale, st.rotation)
             }
         };
         if let Some(t) = guide_tex { paint_quad(&painter, t, quad, Color32::WHITE.gamma_multiply(st.opacity)); }
+        if st.hand && !st.frozen { if let Some(t) = app.textures.id("overlay-hand") { painter.image(t, media_rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE); } }
         if let (true, Some(c)) = (st.calibrating && !st.locked, st.corners) {
             let pts: Vec<Pos2> = c.iter().map(|q| to_screen(*q)).collect();
             painter.add(egui::Shape::closed_line(pts.clone(), Stroke::new(2.0_f32, Color32::from_rgb(0x7c, 0xc4, 0xb3))));
@@ -313,6 +358,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
     if exit {
         app.screen_state.overlay = Default::default(); // stops the camera
         app.textures.remove("overlay-media");
+        app.textures.remove("overlay-hand");
         app.save_project();
         app.go(Screen::Workspace);
     }

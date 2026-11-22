@@ -2,6 +2,7 @@ import { app } from '../../state.js';
 import { h, icon, toast, confirmDialog, promptDialog, dialog } from '../dom.js';
 import { projectCard, importProjectFile } from './home.js';
 import { exportProjectFile } from '../exporter.js';
+import { openHistory } from '../history.js';
 
 /** Library metadata kept in the project file: folder, tags, favourite, notes. */
 const lib = (p) => ({ folder: '', tags: [], favorite: false, notes: '', ...(p.library || {}) });
@@ -68,6 +69,7 @@ export async function renderLibrary(main) {
       const actions = h('div.row', { style: { gap: '4px', marginTop: '6px' } },
         h('button.btn.small.ghost', { type: 'button', 'aria-pressed': String(m.favorite), 'aria-label': `${m.favorite ? 'Remove from' : 'Add to'} favourites: ${p.name}`, on: { click: async () => { await setLib(p, { ...m, favorite: !m.favorite }); refresh(); } } }, m.favorite ? '★' : '☆'),
         h('button.btn.small.ghost', { type: 'button', 'aria-label': `Folder, tags and notes for ${p.name}`, on: { click: () => edit(p) } }, '🏷'),
+        h('button.btn.small.ghost', { type: 'button', 'aria-label': `History, before/after and cover for ${p.name}`, title: 'History and cover', on: { click: async () => { await openHistory(p); refresh(); } } }, '🕘'),
         h('button.btn.small.ghost', { type: 'button', 'aria-label': `Rename ${p.name}`, on: { click: async () => {
           const name = await promptDialog('Rename project', p.name);
           if (name && name.trim()) { await app.store.rename(p.id, name); if (app.project && app.project.id === p.id) app.project.name = name.trim(); refresh(); }

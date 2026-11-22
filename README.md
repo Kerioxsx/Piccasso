@@ -62,6 +62,8 @@ More detail: [web/README.md](web/README.md) · [rust/README.md](rust/README.md) 
 19. **Skill tree (web)**: 30 lessons in 10 categories, from basic shapes and lines to perspective, light, shading, texture, composition, anatomy and finished drawings. Each lesson opens the right practice tool, unlocks the next ones, and keeps your notes, bookmarks, history and milestones on the device.
 20. **Analyze my drawing (web)**: compare a photo of your drawing with the reference: value histograms, contrast and brightness with plain advice, a symmetry heat map, matching grids, measurements with ratios, a colour/value sampler and note pins.
 21. **Make it yours (web)**: paper and graphite themes besides light/dark, any accent colour, interface size; projects organised in folders with tags, favourites and notes, searchable and sortable.
+22. **Camera helpers**: zoom in on the camera picture, freeze a frame, switch between front and back cameras, and get plain hints when the light is too dark, uneven or glaring, or the picture is blurry. Turn on “Show my hand in front of the guide” and your hand (found by skin colour, no AI) is drawn over the guide instead of under it.
+23. **Drawing history (web)**: add dated photos of your drawing to a project, compare any two with a before/after slider, and pick a cover for the project.
 12. **Check a photo** of your drawing (on device, never uploaded): paper detection, flattening, gentle structural feedback ("about 12% wider than the guide").
 13. **Projects** saved locally (IndexedDB / project files on disk), rename, duplicate, delete, resume; export guide PNG, printable step sheet, portable project file; import from either app.
 

@@ -47,6 +47,18 @@ try {
   const size = fs.statSync(file).size;
   if (size < 1000) throw new Error('video too small: ' + size);
   console.log(`ok: ${m[1]} photos -> ${d.suggestedFilename()} (${size} bytes)`);
+  // freeze frame, zoom and the hand view
+  await page.getByRole('button', { name: 'Freeze frame' }).click();
+  if (await page.locator('.ar-freeze').isHidden()) throw new Error('freeze canvas not shown');
+  await page.getByRole('slider', { name: 'Zoom (magnify the view)' }).evaluate((el) => { el.value = '200'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  const tf = await page.locator('.ar-stage').evaluate((el) => el.style.transform);
+  if (!/scale\(2\)/.test(tf)) throw new Error('zoom not applied: ' + tf);
+  if (out) await page.screenshot({ path: path.join(out, 'ar-zoom.png') });
+  await page.getByRole('button', { name: 'Back to live' }).click();
+  await page.getByLabel('Show my hand in front of the guide').check();
+  await page.waitForTimeout(1500);
+  await page.getByLabel('Show my hand in front of the guide').uncheck();
+  console.log('ok: freeze, zoom and hand view');
   if (errors.length) throw new Error(errors.join('\n'));
 } catch (e) { console.error('FAIL', e.message); failed = true; }
 await browser.close(); server.close();
