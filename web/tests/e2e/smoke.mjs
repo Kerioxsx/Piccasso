@@ -93,6 +93,23 @@ try {
   await page.goto(base + '#/library');
   await page.getByRole('heading', { name: 'Your projects' }).waitFor();
   await shot('10-library');
+
+  step('drawing history, before/after and cover');
+  const pic = path.join(WEB, 'icons', fs.readdirSync(path.join(WEB, 'icons')).find((f) => f.endsWith('.png')));
+  await page.getByRole('button', { name: /^History, before\/after and cover for/ }).first().click();
+  for (let i = 0; i < 2; i++) {
+    const fc = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Add a photo of my drawing' }).click();
+    await (await fc).setFiles(pic);
+    await page.locator('.history-item').nth(i).waitFor();
+  }
+  await page.locator('.ba').waitFor();
+  await page.getByRole('button', { name: 'Make cover' }).first().click();
+  await page.getByRole('button', { name: 'Cover ✓' }).waitFor();
+  await shot('10b-history');
+  await page.getByRole('button', { name: 'Close' }).click();
+  const coverSrc = await page.locator('.project img').first().getAttribute('src');
+  if (!coverSrc.startsWith('data:image/jpeg')) throw new Error('cover not used on the project card');
   await page.goto(base + '#/settings');
   await page.getByRole('heading', { name: 'Settings' }).waitFor();
   await page.getByRole('button', { name: 'Dark' }).click();

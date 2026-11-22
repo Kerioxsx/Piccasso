@@ -1,3 +1,4 @@
+import { coverOf } from '../../core/history.js';
 import { app } from '../../state.js';
 import { h, icon, toast, nav, pickFile } from '../dom.js';
 import { fileToCanvas, canvasToSource, canvasToRGBA, thumbnail, sourceToDataUrl } from '../imageio.js';
@@ -65,7 +66,7 @@ export async function openProject(id) {
 export function projectCard(p, extra) {
   const pct = p.steps && p.steps.length ? Math.round(((p.progress.completed.length + p.progress.skipped.length) / p.steps.length) * 100) : 0;
   return h('div.project',
-    h('img', { src: p.thumb || '', alt: '' }),
+    h('img', { src: coverOf(p), alt: '' }),
     h('div.meta',
       h('div.name', p.name),
       h('div.small.muted', p.steps.length ? `Step ${p.progress.currentStep + 1} of ${p.steps.length}` : 'Not started'),

@@ -43,8 +43,8 @@ Legend: ✅ done · 🟡 partly done · ⬜ to build. "Web" = installable web ap
 | WebXR plane detection + anchors | ✅ where the browser supports it |
 | AR grid / construction shapes / contours overlays | ✅ (layer chips) |
 | Timelapse of the real drawing | ✅ |
-| Camera zoom, freeze frame, front/rear switch, focus/lighting hints | ⬜ |
-| Hand detection | ⬜ (classical skin/motion detection planned; no AI) |
+| Camera zoom, freeze frame, front/rear switch, focus/lighting hints | ✅ web (zoom 100–400 % magnifies picture and guide together; freeze holds the frame; camera switch where two cameras exist; hints for dark, washed-out, glare, uneven light and blur from brightness statistics and Laplacian sharpness). Desktop: zoom, freeze and hints on the phone-camera or webcam picture |
+| Hand detection | ✅ classical YCbCr skin-colour mask with speckle removal; “Show my hand in front of the guide” draws your hand over the guide (web and desktop). No AI |
 
 ## 4. Workspace
 | Feature | Status |
@@ -78,7 +78,7 @@ Legend: ✅ done · 🟡 partly done · ⬜ to build. "Web" = installable web ap
 |---|---|
 | Project library, thumbnails, recent, automatic local saving, offline access, import/export, backup | ✅ |
 | Folders, tags, favourites, project notes, search across names/tags/notes, sorting (recent, name, least finished) | ✅ (kept in the project file, so they travel with exports) |
-| Custom covers, version history, before/after | ⬜ |
+| Custom covers, version history, before/after | ✅ web: dated photos of your drawing with notes (up to 40, the first is always kept), before/after slider, cover from a photo, the reference or any picture. Stored in the project file, so the desktop app keeps them; desktop viewer ⬜ |
 
 ## 9. Customization
 Overlay opacity, grid spacing, paper dimensions, text scale, interface size, motion, themes and accent colours ✅; guide colour/thickness in Guides ✅. Keyboard shortcut editor, custom toolbars, templates ⬜.

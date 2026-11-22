@@ -14,6 +14,7 @@ import { paperLayout } from '../../core/steps.js';
 import { toGray } from '../../core/image.js';
 import { WakeLock } from '../wakelock.js';
 import { Timelapse, timelapseSupported, saveVideo } from '../timelapse.js';
+import { frameStats, lightingHints, skinMask, dilate } from '../../core/camera.js';
 
 const LIMITS = 'The camera view is an alignment aid. The guide is drawn on your screen over the camera picture; it is not projected onto the paper. Alignment can drift when the phone or paper moves, and the app cannot correct for every movement. For best results, put the phone on a stand or a stack of books above the paper, use even lighting, and tape the paper down.';
 
@@ -29,16 +30,20 @@ export async function renderAr(main) {
   let paperCorners = null; // screen-space TL,TR,BR,BL of the physical paper (calibration)
   let simple = { cx: 0, cy: 0, scale: ar.scale || 1, rotation: ar.rotation || 0, ox: ar.offsetX || 0, oy: ar.offsetY || 0 };
   const wake = new WakeLock(() => {});
+  let facing = 'environment', frozen = false, zoom = 1, pan = [0, 0], showHand = false, handTimer = 0, hintTimer = 0, hintId = '', hintDismissed = '';
 
   const video = h('video', { playsInline: true, muted: true, autoplay: true, 'aria-label': 'Camera view' });
   video.setAttribute('playsinline', '');
   const bgPhoto = h('img.bg-photo', { alt: 'Photo of your paper', hidden: true });
+  const freezeCv = h('canvas.ar-freeze', { hidden: true, 'aria-label': 'Frozen camera picture' });
   const overlay = h('canvas.ar-overlay', { 'aria-hidden': 'true' });
+  const handCv = h('canvas.ar-hand', { 'aria-hidden': 'true', hidden: true });
   const surface = h('div.ar-drag-surface', { 'aria-label': 'Drag to move the guide; pinch to resize and rotate' });
   const handles = ['TL', 'TR', 'BR', 'BL'].map((n, i) => h('div.ar-handle', { hidden: true, role: 'slider', tabIndex: 0, 'aria-label': `Paper corner ${n}. Drag onto the matching corner of your paper.`, 'data-i': i }, n));
   const statusEl = h('span.ar-status', { 'data-state': 'unavailable', role: 'status' }, h('span.dot'), h('span', 'Checking…'));
   const msg = h('div.ar-msg', { hidden: true, role: 'alert' });
   const xrDom = h('div', { style: { position: 'absolute', inset: 0, pointerEvents: 'none' } });
+  const hint = h('div.ar-hint', { hidden: true, role: 'status', 'aria-live': 'polite' });
 
   const setStatus = (state, text) => { statusEl.dataset.state = state; statusEl.lastChild.textContent = text; };
   const showMsg = (...content) => { msg.innerHTML = ''; msg.append(...content); msg.hidden = false; };
@@ -79,6 +84,10 @@ export async function renderAr(main) {
     h('label.row', { style: { gap: '6px' } }, tlBox, 'Record timelapse'), tlStatus, tlSave);
   if (!timelapseSupported()) { tlBox.disabled = true; tlStatus.textContent = 'This browser can\'t make videos.'; }
 
+  const freezeBtn = h('button.btn.small', { type: 'button', 'aria-pressed': 'false', on: { click: () => setFrozen(!frozen) } }, 'Freeze frame');
+  const switchBtn = h('button.btn.small', { type: 'button', hidden: true, on: { click: switchCamera } }, 'Switch camera');
+  const handBox = h('input', { type: 'checkbox', on: { change: (e) => { showHand = e.target.checked; handCv.hidden = !showHand; if (showHand) startHand(); else stopHand(); announce(showHand ? 'Your hand is shown in front of the guide' : 'Hand view off'); } } });
+  const zoomSlider = slider({ label: 'Zoom (magnify the view)', min: 100, max: 400, step: 10, value: 100, format: (v) => v + '%', onInput: (v) => { zoom = v / 100; if (zoom === 1) pan = [0, 0]; applyZoom(); } });
   const camOnly = [];
   const panel = h('div.ar-panel', { role: 'region', 'aria-label': 'Tracing controls' },
     h('div.grid', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' } },
@@ -97,11 +106,16 @@ export async function renderAr(main) {
       h('button.btn.small', { type: 'button', 'aria-pressed': 'false', on: { click: (e) => { calibrating = !calibrating; e.currentTarget.setAttribute('aria-pressed', String(calibrating)); if (calibrating && !paperCorners) paperCorners = defaultPaperCorners(); updateHandles(); place(); if (calibrating) announce('Drag the four round handles onto the corners of your paper'); } } }, 'Calibrate corners'),
       (camOnly[0] = h('button.btn.small', { type: 'button', on: { click: detectNow } }, 'Detect paper'))),
     h('div.grid', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginTop: '6px' } }, lockToggle, (camOnly[1] = followToggle)),
+    (camOnly[2] = h('div.row', { style: { marginTop: '8px', alignItems: 'center' } },
+      freezeBtn, switchBtn,
+      h('label.row', { style: { gap: '6px' } }, handBox, 'Show my hand in front of the guide'))),
+    h('div.grid', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginTop: '6px' } }, zoomSlider),
     tlRow,
     h('details', { style: { marginTop: '6px' } }, h('summary', 'About camera tracing'), h('p.small', LIMITS)));
 
   const xrBtn = h('button.btn.small', { type: 'button', hidden: true, on: { click: startXrMode } }, icon('ar'), 'Start AR');
-  const screen = h('div.ar-screen', video, bgPhoto, overlay, surface, ...handles,
+  const stage = h('div.ar-stage', video, bgPhoto, freezeCv, overlay, handCv, ...handles);
+  const screen = h('div.ar-screen', stage, surface, hint,
     h('div.ar-top',
       h('button.icon-btn', { type: 'button', 'aria-label': 'Exit camera tracing', on: { click: () => nav('workspace') } }, icon('close')),
       statusEl, h('span', { style: { flex: 1 } }), xrBtn,
@@ -175,8 +189,7 @@ export async function renderAr(main) {
     hd.addEventListener('pointerdown', (e) => { if (ar.alignmentLocked) return; e.preventDefault(); hd.setPointerCapture(e.pointerId); hd.dataset.drag = '1'; });
     hd.addEventListener('pointermove', (e) => {
       if (!hd.dataset.drag) return;
-      const r = screen.getBoundingClientRect();
-      paperCorners[i] = [e.clientX - r.left, e.clientY - r.top];
+      paperCorners[i] = toStage(e.clientX, e.clientY);
       place();
     });
     hd.addEventListener('pointerup', () => { delete hd.dataset.drag; paperCorners = orderCorners(paperCorners); place(); save(); });
@@ -196,17 +209,20 @@ export async function renderAr(main) {
     const [p1, p2] = a;
     return { x: (p1[0] + p2[0]) / 2, y: (p1[1] + p2[1]) / 2, d: Math.hypot(p1[0] - p2[0], p1[1] - p2[1]), a: Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) };
   };
-  surface.addEventListener('pointerdown', (e) => { if (ar.alignmentLocked || mode === 'webxr') return; surface.setPointerCapture(e.pointerId); touches.set(e.pointerId, [e.clientX, e.clientY]); g0 = gsnap(); });
+  surface.addEventListener('pointerdown', (e) => { if ((ar.alignmentLocked && zoom === 1) || mode === 'webxr') return; surface.setPointerCapture(e.pointerId); touches.set(e.pointerId, [e.clientX, e.clientY]); g0 = gsnap(); });
   surface.addEventListener('pointermove', (e) => {
-    if (!touches.has(e.pointerId) || ar.alignmentLocked) return;
+    if (!touches.has(e.pointerId)) return;
     touches.set(e.pointerId, [e.clientX, e.clientY]);
     const g = gsnap();
+    if (ar.alignmentLocked) { pan = [pan[0] + g.x - g0.x, pan[1] + g.y - g0.y]; g0 = g; applyZoom(); return; } // locked + zoomed: drag moves the view
+    const k = 1 / zoom;
+    g.x = g0.x + (g.x - g0.x) * k; g.y = g0.y + (g.y - g0.y) * k;
     if (paperCorners) paperCorners = paperCorners.map(([x, y]) => [x + g.x - g0.x, y + g.y - g0.y]);
     else {
       simple.ox += g.x - g0.x; simple.oy += g.y - g0.y;
       if (g.d && g0.d) { simple.scale = Math.min(3, Math.max(0.2, simple.scale * (g.d / g0.d))); simple.rotation += ((g.a - g0.a) * 180) / Math.PI; }
     }
-    g0 = g; place();
+    g0 = gsnap(); place();
   });
   const gEnd = (e) => { touches.delete(e.pointerId); g0 = touches.size ? gsnap() : null; save(); };
   surface.addEventListener('pointerup', gEnd);
@@ -215,8 +231,8 @@ export async function renderAr(main) {
   // ----- paper detection / tracking -----
   const grab = document.createElement('canvas');
   function frameGray() {
-    const src = mode === 'photo' ? bgPhoto : video;
-    const vw = mode === 'photo' ? bgPhoto.naturalWidth : video.videoWidth, vh = mode === 'photo' ? bgPhoto.naturalHeight : video.videoHeight;
+    const src = mode === 'photo' ? bgPhoto : frozen ? freezeCv : video;
+    const vw = mode === 'photo' ? bgPhoto.naturalWidth : frozen ? freezeCv.width : video.videoWidth, vh = mode === 'photo' ? bgPhoto.naturalHeight : frozen ? freezeCv.height : video.videoHeight;
     if (!vw || !vh) return null;
     const s = 200 / Math.max(vw, vh);
     grab.width = Math.round(vw * s); grab.height = Math.round(vh * s);
@@ -271,7 +287,7 @@ export async function renderAr(main) {
   async function startCamera() {
     hideMsg();
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
     } catch (e) {
       mode = 'none'; setModeStatus();
       const why = e.name === 'NotAllowedError' ? 'Camera permission was denied. To use tracing, allow camera access for this site in your browser settings, then try again.'
@@ -288,6 +304,8 @@ export async function renderAr(main) {
     try { await video.play(); } catch { /* autoplay policies; muted inline usually OK */ }
     mode = 'camera';
     camOnly.forEach((el) => { el.hidden = false; });
+    navigator.mediaDevices.enumerateDevices?.().then((ds) => { switchBtn.hidden = ds.filter((d) => d.kind === 'videoinput').length < 2; }).catch(() => {});
+    startHints();
     stream.getVideoTracks()[0].addEventListener('ended', () => {
       setStatus('lost', 'Camera stopped');
       showMsg(h('p', 'The camera stopped (another app may have taken it, or the device went to sleep).'), h('button.btn.small', { type: 'button', on: { click: startCamera } }, 'Restart camera'));
@@ -296,7 +314,84 @@ export async function renderAr(main) {
     if (app.settings.keepAwake) wake.request();
     return true;
   }
-  function stopCamera() { if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; } }
+  function stopCamera() { if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; } stopHints(); }
+
+  // ----- zoom, freeze, camera switch -----
+  /** Screen (client) point → stage point, undoing the zoom and pan. */
+  function toStage(x, y) {
+    const r = screen.getBoundingClientRect(), cx = r.width / 2, cy = r.height / 2;
+    return [cx + (x - r.left - cx - pan[0]) / zoom, cy + (y - r.top - cy - pan[1]) / zoom];
+  }
+  function applyZoom() {
+    const lim = [(zoom - 1) * screen.clientWidth / 2, (zoom - 1) * screen.clientHeight / 2];
+    pan = pan.map((v, i) => Math.max(-lim[i], Math.min(lim[i], v)));
+    stage.style.transform = zoom === 1 ? '' : `translate(${pan[0]}px, ${pan[1]}px) scale(${zoom})`;
+  }
+  function setFrozen(v) {
+    if (v && !video.videoWidth) { toast('The camera is not ready yet.'); return; }
+    frozen = v;
+    if (v) {
+      freezeCv.width = video.videoWidth; freezeCv.height = video.videoHeight;
+      freezeCv.getContext('2d').drawImage(video, 0, 0);
+      clearHand();
+    }
+    freezeCv.hidden = !v; video.style.visibility = v ? 'hidden' : '';
+    freezeBtn.setAttribute('aria-pressed', String(v)); freezeBtn.textContent = v ? 'Back to live' : 'Freeze frame';
+    announce(v ? 'Picture frozen. Zoom in to check details.' : 'Live camera');
+  }
+  async function switchCamera() {
+    facing = facing === 'environment' ? 'user' : 'environment';
+    if (frozen) setFrozen(false);
+    stopCamera();
+    if (await startCamera()) toast(facing === 'user' ? 'Front camera' : 'Back camera');
+  }
+
+  // ----- lighting / focus hints -----
+  function startHints() {
+    stopHints();
+    hintTimer = setInterval(() => {
+      if (mode !== 'camera' || frozen || document.hidden) return;
+      const f = frameGray(); if (!f) return;
+      const hs = lightingHints(frameStats(f.gray));
+      const top = hs.find((x) => x.id !== hintDismissed);
+      if (!top) { hint.hidden = true; hintId = ''; if (!hs.length) hintDismissed = ''; return; }
+      if (top.id === hintId) return;
+      hintId = top.id;
+      hint.replaceChildren(h('span', top.text), h('button.icon-btn', { type: 'button', 'aria-label': 'Dismiss hint', on: { click: () => { hintDismissed = hintId; hint.hidden = true; hintId = ''; } } }, '×'));
+      hint.hidden = false;
+    }, 1500);
+  }
+  function stopHints() { clearInterval(hintTimer); hintTimer = 0; hint.hidden = true; hintId = ''; }
+
+  // ----- hand in front of the guide (classical skin-colour mask) -----
+  const handGrab = document.createElement('canvas'), maskCv = document.createElement('canvas');
+  function clearHand() { handCv.getContext('2d').clearRect(0, 0, handCv.width, handCv.height); }
+  function startHand() {
+    stopHand();
+    handTimer = setInterval(() => {
+      if (mode !== 'camera' || frozen || document.hidden || !video.videoWidth) return;
+      const vw = video.videoWidth, vh = video.videoHeight, k = 160 / Math.max(vw, vh);
+      handGrab.width = Math.round(vw * k); handGrab.height = Math.round(vh * k);
+      const g = handGrab.getContext('2d', { willReadFrequently: true });
+      g.drawImage(video, 0, 0, handGrab.width, handGrab.height);
+      const d = g.getImageData(0, 0, handGrab.width, handGrab.height);
+      const m = skinMask({ width: d.width, height: d.height, data: d.data });
+      const sw = screen.clientWidth, sh = screen.clientHeight;
+      if (handCv.width !== sw || handCv.height !== sh) { handCv.width = sw; handCv.height = sh; }
+      const ctx = handCv.getContext('2d');
+      ctx.clearRect(0, 0, sw, sh);
+      if (m.share < 0.004) return;
+      const big = dilate(m, 2);
+      maskCv.width = big.width; maskCv.height = big.height;
+      const md = maskCv.getContext('2d').createImageData(big.width, big.height);
+      for (let i = 0; i < big.data.length; i++) md.data[i * 4 + 3] = big.data[i];
+      maskCv.getContext('2d').putImageData(md, 0, 0);
+      const s = Math.max(sw / vw, sh / vh), dw = vw * s, dh = vh * s, dx = (sw - dw) / 2, dy = (sh - dh) / 2;
+      ctx.filter = 'blur(3px)'; ctx.drawImage(maskCv, dx, dy, dw, dh); ctx.filter = 'none';
+      ctx.globalCompositeOperation = 'source-in'; ctx.drawImage(video, dx, dy, dw, dh); ctx.globalCompositeOperation = 'source-over';
+    }, 120);
+  }
+  function stopHand() { clearInterval(handTimer); handTimer = 0; clearHand(); }
 
   async function usePhoto() {
     const f = await pickFile('image/*', 'environment');
@@ -304,8 +399,9 @@ export async function renderAr(main) {
     stopCamera(); stopTracking(); follow = false;
     bgPhoto.src = URL.createObjectURL(f);
     await bgPhoto.decode().catch(() => {});
+    if (frozen) setFrozen(false);
     bgPhoto.hidden = false; video.hidden = true; mode = 'photo'; hideMsg(); tl.stop(); tlBox.checked = false; tlRow.hidden = true;
-    camOnly[1].hidden = true; camOnly[0].hidden = false;
+    camOnly[1].hidden = true; camOnly[2].hidden = true; camOnly[0].hidden = false;
     setModeStatus();
     toast('Align the guide over your photo. Tip: tap Detect paper.');
   }
@@ -358,9 +454,9 @@ export async function renderAr(main) {
     if (mode === 'camera' && stream && stream.getVideoTracks()[0].readyState === 'ended') startCamera();
   };
   document.addEventListener('visibilitychange', onVis);
-  const ro = new ResizeObserver(() => place()); ro.observe(screen);
+  const ro = new ResizeObserver(() => { place(); applyZoom(); }); ro.observe(screen);
   return () => {
-    tl.stop(); clearInterval(tlTimer);
+    tl.stop(); clearInterval(tlTimer); stopHand(); stopHints();
     stopTracking(); stopCamera(); wake.release(); ro.disconnect();
     document.removeEventListener('visibilitychange', onVis);
     if (xr) xr.end();

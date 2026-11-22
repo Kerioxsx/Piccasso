@@ -3,6 +3,7 @@
 //! and storage. Shared by the desktop app and its tests; mirrors the web app's
 //! `web/js/core/*` modules (verified by `shared/test-vectors.json`).
 pub mod analysis;
+pub mod camera;
 pub mod capabilities;
 pub mod compare;
 pub mod filters;
