@@ -29,3 +29,16 @@ fn skin_mask_and_cutout() {
     let one = Gray { width: 5, height: 5, data: (0..25).map(|i| if i == 12 { 255 } else { 0 }).collect() };
     assert_eq!(dilate(&one, 1).data.iter().filter(|v| **v > 0).count(), 9);
 }
+
+#[test]
+fn canvas_under_the_cursor() {
+    use piccasso_core::tooldetect::canvas_at;
+    // grey app window with a white canvas (with a black stroke on it) and a toolbar
+    let img = rgb(1000, 700, |x, y| {
+        if (200..900).contains(&x) && (100..600).contains(&y) { if (400..402).contains(&x) && (200..500).contains(&y) { [0, 0, 0] } else { [255, 255, 255] } }
+        else if y < 40 { [60, 60, 60] } else { [200, 200, 200] }
+    });
+    let c = canvas_at(&img, 500, 300).expect("canvas");
+    assert!((c[0] - 200).abs() <= 3 && (c[1] - 100).abs() <= 3 && (c[2] - 700).abs() <= 4 && (c[3] - 500).abs() <= 4, "{c:?}");
+    assert!(canvas_at(&img, 10, 10).is_none(), "the toolbar strip is too thin to be a canvas");
+}

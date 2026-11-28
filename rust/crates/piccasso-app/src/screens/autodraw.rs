@@ -21,13 +21,29 @@ pub enum Target { Corner(usize), Brush, LineBrush, SliderZero, SliderFull, Butto
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PickWhat { Tool(Target), Area, ColorArea, TestArea }
 
-pub struct Pick { pub what: PickWhat, pub shot: Option<Rgba>, pub start: Option<(i32, i32)>, pub candidates: Vec<[i32; 4]> }
+pub struct Pick {
+    pub what: PickWhat,
+    /// Later steps of a setup run.
+    pub queue: Vec<PickWhat>,
+    /// (current step, total steps).
+    pub step: (usize, usize),
+    /// Native-resolution screenshot shown under the picker (None: see-through window).
+    pub shot: Option<Rgba>,
+    /// The same screen in mouse coordinates, for detection.
+    pub mouse_img: Option<Rgba>,
+    /// Screenshot pixels per mouse unit.
+    pub scale: f64,
+    pub tex: Option<egui::TextureHandle>,
+    pub start: Option<(i32, i32)>,
+    pub candidates: Vec<[i32; 4]>,
+    hover_canvas: Option<([i32; 2], Option<[i32; 4]>)>,
+}
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum OpacityMode { None, Slider, Buttons }
 
 /// How Piccasso chooses a paint colour in the target program.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub enum ColorMode {
     /// Black only (no colour changes).
     #[default]
@@ -39,7 +55,8 @@ pub enum ColorMode {
 }
 
 /// Where the target program's tools are (screen pixels).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Tools {
     pub brush: Option<(i32, i32)>,
     /// Optional thin brush for the fine pass (ink lines, hatching).
@@ -119,17 +136,83 @@ pub struct AutoDrawState {
     run: Option<(Receiver<Msg>, Arc<AtomicBool>)>,
     progress: f32,
     status: String,
+    profiles: Option<ProfileFile>,
+    profile: String,
+    new_profile: String,
+    save_profile_soon: bool,
 }
 impl Default for AutoDrawState {
     fn default() -> Self {
         AutoDrawState { pick: None, tones: 4, brush_px: 6.0, depth: true, coat: 0.25, line_px: 2.0, replica_lines: true, colors: 0, timelapse: false, timelapse_file: None, fine_detail: true, cal_rx: None, speed_rx: None, cal_log: Default::default(), opacity_mode: OpacityMode::Slider, tools: Tools::new_default(), replica: None, replica_rx: None, sim: None,
-            source: 1, detail: 1.5, speed: 2500.0, paths: None, area: None, corner: [None, None], capture: None, run: None, progress: 0.0, status: String::new() }
+            source: 1, detail: 1.5, speed: 2500.0, paths: None, area: None, corner: [None, None], capture: None, run: None, progress: 0.0, status: String::new(),
+            profiles: None, profile: String::new(), new_profile: String::new(), save_profile_soon: false }
     }
 }
 
+/// A saved setup for one drawing program: where its canvas and tools are, and how fast to draw.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Profile {
+    pub name: String,
+    pub tools: Tools,
+    pub area: Option<[f64; 4]>,
+    pub opacity_mode: OpacityMode,
+    pub speed: f64,
+    pub brush_px: f64,
+    pub line_px: f64,
+    pub read_hz: u64,
+    pub dwell_ms: u64,
+    pub source: u8,
+    #[serde(default)]
+    pub colors: usize,
+}
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct ProfileFile { pub last: Option<String>, pub profiles: Vec<Profile> }
+
+fn profiles_path(dir: &std::path::Path) -> std::path::PathBuf { dir.join("autodraw-profiles.json") }
+fn load_profiles(dir: &std::path::Path) -> ProfileFile { std::fs::read_to_string(profiles_path(dir)).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default() }
+fn save_profiles(dir: &std::path::Path, f: &ProfileFile) { let _ = std::fs::create_dir_all(dir); let _ = std::fs::write(profiles_path(dir), serde_json::to_string_pretty(f).unwrap_or_default()); }
+
 impl AutoDrawState {
+    fn to_profile(&self, name: &str) -> Profile {
+        Profile { name: name.to_string(), tools: self.tools.clone(), area: self.area, opacity_mode: self.opacity_mode, speed: self.speed, brush_px: self.brush_px, line_px: self.line_px,
+            read_hz: READ_HZ.load(Ordering::Relaxed), dwell_ms: DWELL_MS.load(Ordering::Relaxed), source: self.source, colors: self.colors }
+    }
+    fn apply_profile(&mut self, p: &Profile) {
+        self.tools = p.tools.clone();
+        self.area = p.area;
+        self.corner = match p.area { Some(a) => [Some((a[0] as i32, a[1] as i32)), Some(((a[0] + a[2]) as i32, (a[1] + a[3]) as i32))], None => [None, None] };
+        self.opacity_mode = p.opacity_mode; self.speed = p.speed; self.brush_px = p.brush_px; self.line_px = p.line_px; self.source = p.source; self.colors = p.colors;
+        READ_HZ.store(p.read_hz.clamp(20, 480), Ordering::Relaxed); DWELL_MS.store(p.dwell_ms.min(200), Ordering::Relaxed);
+        self.profile = p.name.clone();
+    }
+    /// Write the current setup into the selected profile (creating "My setup" the first time).
+    fn save_profile(&mut self, dir: &std::path::Path) {
+        if self.area.is_none() && self.tools.slider.iter().all(|p| p.is_none()) && self.tools.brush.is_none() { return; }
+        if self.profile.is_empty() { self.profile = "My setup".into(); }
+        let prof = self.to_profile(&self.profile.clone());
+        let f = self.profiles.get_or_insert_with(Default::default);
+        match f.profiles.iter_mut().find(|p| p.name == prof.name) { Some(p) => *p = prof, None => f.profiles.push(prof) }
+        f.last = Some(self.profile.clone());
+        save_profiles(dir, f);
+    }
     /// Transparent window needed (picker active without a screenshot underneath).
     pub fn picking(&self) -> bool { self.pick.as_ref().map_or(false, |p| p.shot.is_none()) }
+    /// Forget a tool position (the ✖ next to it).
+    fn clear_target(&mut self, t: Target) {
+        match t {
+            Target::Corner(i) => { self.corner[i] = None; self.area = None; }
+            Target::Brush => self.tools.brush = None,
+            Target::LineBrush => self.tools.line_brush = None,
+            Target::SliderZero => self.tools.slider[0] = None,
+            Target::SliderFull => self.tools.slider[1] = None,
+            Target::Button(i) => { if let Some(b) = self.tools.buttons.get_mut(i) { *b = None; } }
+            Target::FullButton => self.tools.full = None,
+            Target::SizeMin => self.tools.size_slider[0] = None,
+            Target::SizeMax => self.tools.size_slider[1] = None,
+            Target::HexField => self.tools.hex_field = None,
+            Target::Swatch => self.tools.swatch = None,
+        }
+    }
     fn set_target(&mut self, t: Target, p: (i32, i32)) {
         match t {
             Target::Corner(i) => self.corner[i] = Some(p),
@@ -151,104 +234,243 @@ impl AutoDrawState {
     }
 }
 
-/// Full-screen picker: click a tool, or drag a box for the drawing area.
-fn show_picker(st: &mut AutoDrawState, tex: &mut crate::ui::Textures, ctx: &egui::Context) {
+/// Full-screen picker: click a tool, or drag a box for the drawing area. Shows a
+/// sharp, full-resolution screenshot with a magnifier at the cursor; for areas,
+/// the canvas under the cursor is outlined and one click selects it. A setup
+/// run (`queue`) goes through several picks without leaving full screen.
+fn show_picker(st: &mut AutoDrawState, ctx: &egui::Context) {
     let Some(pk) = st.pick.as_mut() else { return };
     let mut done: Option<Option<(PickWhat, (i32, i32), (i32, i32))>> = None;
+    let mut skip = false;
+    let native_dims = pk.shot.as_ref().map(|m| vec2(m.width as f32, m.height as f32));
+    let (ppp, scale) = (ctx.pixels_per_point(), pk.scale as f32);
+    // where the window sits on the screen (points); the screenshot is drawn 1:1 under it
+    let win_min = ctx.input(|i| i.viewport().inner_rect).map(|r| r.min);
     egui::CentralPanel::default().frame(egui::Frame::new().fill(if pk.shot.is_some() { Color32::BLACK } else { Color32::from_black_alpha(70) })).show(ctx, |ui| {
         let area = ui.max_rect();
         let resp = ui.allocate_rect(area, egui::Sense::click_and_drag());
         let painter = ui.painter_at(area);
+        // screen region under the window, in screenshot pixels (one per display pixel: sharp);
+        // without the window position, stretch the shot over the window
+        let view: Option<egui::Rect> = match (win_min, native_dims) { (Some(m), Some(_)) => Some(egui::Rect::from_min_size(pos2((m.x + area.min.x) * ppp, (m.y + area.min.y) * ppp), area.size() * ppp)), _ => None };
+        let full_uv = match (view, native_dims) { (Some(v), Some(d)) => egui::Rect::from_min_max(pos2(v.min.x / d.x, v.min.y / d.y), pos2(v.max.x / d.x, v.max.y / d.y)), _ => egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)) };
         if let Some(shot) = &pk.shot {
-            let t = tex.get(ctx, "screen-shot", shot);
-            painter.image(t.id(), area, egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
-            painter.rect_filled(area, 0.0, Color32::from_black_alpha(40));
+            // uploaded once, full resolution, no smoothing: text and icons stay crisp
+            let tex = pk.tex.get_or_insert_with(|| ctx.load_texture("screen-shot", crate::ui::to_color_image(shot), egui::TextureOptions::NEAREST)).id();
+            painter.image(tex, area, full_uv, Color32::WHITE);
         }
-        let what = match pk.what {
-            PickWhat::Area => "Drag a box around the area to draw in (your program's canvas).".to_string(),
-            PickWhat::ColorArea => "Drag a box around a colour wheel, colour square or colour slider (or click a highlighted one).".to_string(),
-            PickWhat::TestArea => "Drag a box over an empty part of the canvas for test strokes.".to_string(),
-            PickWhat::Tool(t) => format!("Click on: {}", match t {
-                Target::Brush => "the fill brush button", Target::LineBrush => "the line brush button",
-                Target::SliderZero => "the opacity slider at 0%", Target::SliderFull => "the opacity slider at 100%",
-                Target::SizeMin => "the brush-size slider at its smallest size", Target::SizeMax => "the brush-size slider at its largest size",
-                Target::FullButton => "the 100% opacity button", Target::Button(_) => "this shade's opacity button", Target::Corner(_) => "the corner",
-                Target::HexField => "the colour's hex code field", Target::Swatch => "the swatch that shows the current colour",
-            }),
+        // screen point (egui) <-> mouse coordinates
+        // screenshot pixel position of a window point, and back
+        let to_native = |p: egui::Pos2| -> Option<egui::Pos2> {
+            let d = native_dims?;
+            Some(match view { Some(v) => v.min + (p - area.min) * ppp, None => pos2((p.x - area.min.x) / area.width() * d.x, (p.y - area.min.y) / area.height() * d.y) })
         };
+        let from_native = |q: egui::Pos2| -> egui::Pos2 {
+            match (view, native_dims) { (Some(v), _) => area.min + (q - v.min) / ppp, (None, Some(d)) => pos2(area.min.x + q.x / d.x * area.width(), area.min.y + q.y / d.y * area.height()), _ => q }
+        };
+        let to_mouse = |p: egui::Pos2| -> Option<(i32, i32)> { let q = to_native(p)?; Some(((q.x / scale).round() as i32, (q.y / scale).round() as i32)) };
+        let from_mouse = |r: [i32; 4]| -> egui::Rect {
+            egui::Rect::from_two_pos(from_native(pos2(r[0] as f32 * scale, r[1] as f32 * scale)), from_native(pos2((r[0] + r[2]) as f32 * scale, (r[1] + r[3]) as f32 * scale)))
+        };
+        let is_box = matches!(pk.what, PickWhat::Area | PickWhat::ColorArea | PickWhat::TestArea);
+        let hover = ctx.input(|i| i.pointer.hover_pos());
+        let dragging = resp.dragged() && ctx.input(|i| i.pointer.press_origin()).zip(hover).map_or(false, |(a, b)| a.distance(b) > 6.0);
+
+        // canvas under the cursor (areas): outlined, one click selects it
+        let mut snap: Option<[i32; 4]> = None;
+        if matches!(pk.what, PickWhat::Area | PickWhat::TestArea) && !dragging {
+            if let (Some(m), Some(img)) = (hover.and_then(|h| to_mouse(h)), pk.mouse_img.as_ref()) {
+                let key = [m.0 / 6, m.1 / 6];
+                let hit = match pk.hover_canvas { Some((k, c)) if k == key => c, _ => { let c = piccasso_core::tooldetect::canvas_at(img, m.0, m.1); pk.hover_canvas = Some((key, c)); c } };
+                snap = hit;
+            }
+        }
+        if let Some(c) = snap {
+            let r = from_mouse(c);
+            painter.rect_filled(r, 0.0, Color32::from_rgba_unmultiplied(124, 196, 179, 40));
+            painter.rect_stroke(r, 0.0, Stroke::new(3.0_f32, Color32::from_rgb(0xf2, 0xc1, 0x4e)), egui::StrokeKind::Middle);
+            label(&painter, r.left_top() + vec2(8.0, 8.0), &format!("Click to use this canvas · {} × {} px", c[2], c[3]));
+        }
         // detected colour widgets, highlighted so one click picks them
         if pk.what == PickWhat::ColorArea {
-            if let Some(shot) = &pk.shot {
-                let (sx, sy) = (area.width() / shot.width as f32, area.height() / shot.height as f32);
-                for c in &pk.candidates {
-                    let r = egui::Rect::from_min_size(pos2(area.min.x + c[0] as f32 * sx, area.min.y + c[1] as f32 * sy), vec2(c[2] as f32 * sx, c[3] as f32 * sy));
-                    painter.rect_stroke(r, 3.0, Stroke::new(2.5_f32, Color32::from_rgb(0xf2, 0xc1, 0x4e)), egui::StrokeKind::Outside);
-                }
+            for c in &pk.candidates { painter.rect_stroke(from_mouse(*c), 3.0, Stroke::new(2.5_f32, Color32::from_rgb(0xf2, 0xc1, 0x4e)), egui::StrokeKind::Outside); }
+        }
+        // the box being dragged, with its size
+        if is_box && dragging {
+            if let (Some(a), Some(b)) = (ctx.input(|i| i.pointer.press_origin()), hover) {
+                let r = egui::Rect::from_two_pos(a, b);
+                painter.rect_filled(r, 0.0, Color32::from_rgba_unmultiplied(124, 196, 179, 40));
+                painter.rect_stroke(r, 0.0, Stroke::new(2.0_f32, Color32::from_rgb(0x7c, 0xc4, 0xb3)), egui::StrokeKind::Middle);
+                if let (Some(ma), Some(mb)) = (to_mouse(a), to_mouse(b)) { label(&painter, r.left_bottom() + vec2(0.0, 6.0), &format!("{} × {} px", (ma.0 - mb.0).abs(), (ma.1 - mb.1).abs())); }
             }
         }
-        let banner = egui::Rect::from_center_size(pos2(area.center().x, area.min.y + 40.0), vec2(area.width().min(760.0), 54.0));
-        painter.rect_filled(banner, 10.0, Color32::from_black_alpha(200));
-        painter.text(banner.center(), egui::Align2::CENTER_CENTER, format!("{what}   ·   Esc to cancel"), egui::FontId::proportional(18.0), Color32::WHITE);
-        if let Some(p) = ctx.input(|i| i.pointer.hover_pos()) {
-            let st_ = Stroke::new(1.0_f32, Color32::from_rgb(0x7c, 0xc4, 0xb3));
+        // banner
+        let what = pick_text(pk.what);
+        let step = if pk.step.1 > 1 { format!("Step {} of {}: ", pk.step.0 + 1, pk.step.1) } else { String::new() };
+        let keys = if pk.step.1 > 1 { "S skip · Esc stop" } else { "Esc cancel" };
+        let banner = egui::Rect::from_center_size(pos2(area.center().x, area.min.y + 40.0), vec2(area.width().min(900.0), 54.0));
+        painter.rect_filled(banner, 10.0, Color32::from_black_alpha(210));
+        painter.text(banner.center(), egui::Align2::CENTER_CENTER, format!("{step}{what}   ·   {keys}"), egui::FontId::proportional(18.0), Color32::WHITE);
+        // crosshair + magnifier
+        if let Some(p) = hover {
+            let st_ = Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(124, 196, 179, 160));
             painter.line_segment([pos2(area.min.x, p.y), pos2(area.max.x, p.y)], st_);
             painter.line_segment([pos2(p.x, area.min.y), pos2(p.x, area.max.y)], st_);
+            if let (Some(tex), Some(d), Some(q)) = (pk.tex.as_ref(), native_dims, to_native(p)) {
+                let half = 14.0 * scale; // screenshot pixels each side
+                let uv = egui::Rect::from_center_size(pos2(q.x / d.x, q.y / d.y), vec2(2.0 * half / d.x, 2.0 * half / d.y));
+                let size = 168.0;
+                let mut o = p + vec2(28.0, 28.0);
+                if o.x + size > area.max.x { o.x = p.x - 28.0 - size; }
+                if o.y + size + 22.0 > area.max.y { o.y = p.y - 28.0 - size - 22.0; }
+                let r = egui::Rect::from_min_size(o, vec2(size, size));
+                painter.rect_filled(r.expand(3.0), 6.0, Color32::from_black_alpha(220));
+                painter.image(tex.id(), r, uv, Color32::WHITE);
+                let c = r.center();
+                let red = Stroke::new(1.5_f32, Color32::from_rgb(0xe5, 0x39, 0x35));
+                painter.line_segment([pos2(c.x - 10.0, c.y), pos2(c.x + 10.0, c.y)], red);
+                painter.line_segment([pos2(c.x, c.y - 10.0), pos2(c.x, c.y + 10.0)], red);
+                if let Some(m) = to_mouse(p) { label(&painter, r.left_bottom() + vec2(0.0, 4.0), &format!("{}, {}", m.0, m.1)); }
+            }
         }
         if resp.drag_started() || (resp.is_pointer_button_down_on() && pk.start.is_none()) {
-            pk.start = crate::screen_pick::mouse_position();
-        }
-        if let (PickWhat::Area | PickWhat::ColorArea | PickWhat::TestArea, Some(a), Some(p0)) = (pk.what, pk.start, resp.interact_pointer_pos()) {
-            if let Some(start_pt) = ctx.input(|i| i.pointer.press_origin()) {
-                let r = egui::Rect::from_two_pos(start_pt, p0);
-                painter.rect_stroke(r, 0.0, Stroke::new(2.0_f32, Color32::from_rgb(0x7c, 0xc4, 0xb3)), egui::StrokeKind::Middle);
-                let _ = a;
-            }
+            pk.start = crate::screen_pick::mouse_position().or_else(|| hover.and_then(|h| to_mouse(h)));
         }
         if resp.drag_stopped() || resp.clicked() {
             // a quick click can press and release within one frame: fall back to the current position
-            let b = crate::screen_pick::mouse_position();
+            let b = crate::screen_pick::mouse_position().or_else(|| hover.and_then(|h| to_mouse(h)));
             if let (Some(a), Some(b)) = (pk.start.or(b), b) {
-                // a click (not a drag) inside a highlighted widget picks that widget
-                let hit = pk.candidates.iter().find(|c| b.0 >= c[0] && b.1 >= c[1] && b.0 < c[0] + c[2] && b.1 < c[1] + c[3]).copied();
+                let click = (a.0 - b.0).abs() + (a.1 - b.1).abs() < 6;
+                // a click inside a highlighted widget or canvas picks it
+                let hit = pk.candidates.iter().find(|c| b.0 >= c[0] && b.1 >= c[1] && b.0 < c[0] + c[2] && b.1 < c[1] + c[3]).copied().or(snap);
                 match hit {
-                    Some(c) if (a.0 - b.0).abs() + (a.1 - b.1).abs() < 6 => done = Some(Some((pk.what, (c[0], c[1]), (c[0] + c[2], c[1] + c[3])))),
+                    Some(c) if click && is_box => done = Some(Some((pk.what, (c[0], c[1]), (c[0] + c[2], c[1] + c[3])))),
                     _ => done = Some(Some((pk.what, a, b))),
                 }
             }
+            pk.start = None;
         }
     });
     if ctx.input(|i| i.key_pressed(egui::Key::Escape)) { done = Some(None); }
-    if let Some(res) = done {
-        st.pick = None;
-        tex.remove("screen-shot");
-        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
-        match res {
-            Some((PickWhat::Tool(t), _, b)) => st.set_target(t, b),
-            Some((PickWhat::ColorArea, a, b)) | Some((PickWhat::TestArea, a, b)) => {
-                let (x0, y0, x1, y1) = (a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1));
-                if x1 - x0 >= 4 && y1 - y0 >= 4 {
-                    let r = [x0, y0, x1 - x0, y1 - y0];
-                    if matches!(res, Some((PickWhat::ColorArea, _, _))) { st.tools.color_areas.push(r); st.tools.color_mode = ColorMode::Areas; } else { st.tools.test_area = Some(r); }
-                } else { st.status = "The box was too small; drag a bigger one.".into(); }
-            }
-            Some((PickWhat::Area, a, b)) => {
-                let (x0, y0, x1, y1) = (a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1));
-                if x1 - x0 > 20 && y1 - y0 > 20 {
-                    st.corner = [Some((x0, y0)), Some((x1, y1))];
-                    st.area = Some([x0 as f64, y0 as f64, (x1 - x0) as f64, (y1 - y0) as f64]);
-                } else { st.status = "The box was too small; drag a bigger one.".into(); }
-            }
-            None => {}
+    if ctx.input(|i| i.key_pressed(egui::Key::S) || i.key_pressed(egui::Key::Tab)) && st.pick.as_ref().map_or(false, |p| p.step.1 > 1) { skip = true; }
+    if skip || done.is_some() {
+        let ok = match done { Some(Some(res)) => apply_pick(st, res), _ => skip };
+        let pk = st.pick.as_mut().unwrap();
+        let more = done != Some(None) && !pk.queue.is_empty();
+        if more && ok {
+            pk.what = pk.queue.remove(0);
+            pk.step.0 += 1;
+            pk.start = None;
+            pk.hover_canvas = None;
+            pk.candidates = match (&pk.mouse_img, pk.what) { (Some(m), PickWhat::ColorArea) => piccasso_core::tooldetect::detect_color_widgets(m), _ => vec![] };
+        } else if ok || done == Some(None) || skip {
+            st.pick = None;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+            st.save_profile_soon = true;
         }
     }
-    ctx.request_repaint();
 }
 
-fn start_pick(st: &mut AutoDrawState, what: PickWhat, ctx: &egui::Context) {
-    let shot = crate::screen_pick::capture_screen();
-    let candidates = match (&shot, what) { (Some(s), PickWhat::ColorArea) => piccasso_core::tooldetect::detect_color_widgets(s), _ => vec![] };
-    st.pick = Some(Pick { what, shot, start: None, candidates });
+/// Small white label on a dark pill.
+fn label(p: &egui::Painter, at: egui::Pos2, text: &str) {
+    let g = p.layout_no_wrap(text.to_string(), egui::FontId::proportional(14.0), Color32::WHITE);
+    let r = egui::Rect::from_min_size(at, g.size() + vec2(12.0, 6.0));
+    p.rect_filled(r, 6.0, Color32::from_black_alpha(200));
+    p.galley(at + vec2(6.0, 3.0), g, Color32::WHITE);
+}
+
+fn pick_text(w: PickWhat) -> String {
+    match w {
+        PickWhat::Area => "Click inside your program's canvas, or drag a box where the drawing should go".into(),
+        PickWhat::ColorArea => "Click a highlighted colour wheel or slider, or drag a box around one".into(),
+        PickWhat::TestArea => "Click or drag over an empty part of the canvas for test strokes".into(),
+        PickWhat::Tool(t) => format!("Click {}", match t {
+            Target::Brush => "the brush you shade with (a paint brush, not the fill bucket)", Target::LineBrush => "the brush for lines",
+            Target::SliderZero => "the opacity slider at 0%", Target::SliderFull => "the opacity slider at 100%",
+            Target::SizeMin => "the brush-size slider at its smallest end", Target::SizeMax => "the brush-size slider at its largest end",
+            Target::FullButton => "the 100% opacity button", Target::Button(_) => "this shade's opacity button", Target::Corner(_) => "the corner",
+            Target::HexField => "the colour's hex code field", Target::Swatch => "the swatch that shows the current colour",
+        }),
+    }
+}
+
+/// Store a pick. False if it was unusable (box too small): the step is repeated.
+fn apply_pick(st: &mut AutoDrawState, res: (PickWhat, (i32, i32), (i32, i32))) -> bool {
+    let (what, a, b) = res;
+    let (x0, y0, x1, y1) = (a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1));
+    match what {
+        PickWhat::Tool(t) => { st.set_target(t, b); true }
+        PickWhat::ColorArea | PickWhat::TestArea => {
+            if x1 - x0 < 4 || y1 - y0 < 4 { st.status = "The box was too small; drag a bigger one.".into(); return false; }
+            let r = [x0, y0, x1 - x0, y1 - y0];
+            if what == PickWhat::ColorArea { st.tools.color_areas.push(r); st.tools.color_mode = ColorMode::Areas; } else { st.tools.test_area = Some(r); }
+            true
+        }
+        PickWhat::Area => {
+            if x1 - x0 <= 20 || y1 - y0 <= 20 { st.status = "The box was too small; drag a bigger one, or click inside the canvas.".into(); return false; }
+            st.corner = [Some((x0, y0)), Some((x1, y1))];
+            st.area = Some([x0 as f64, y0 as f64, (x1 - x0) as f64, (y1 - y0) as f64]);
+            true
+        }
+    }
+}
+
+fn start_pick(st: &mut AutoDrawState, what: PickWhat, ctx: &egui::Context) { start_picks(st, vec![what], ctx); }
+
+/// Go full screen and pick each item in turn (a setup run when there are several).
+fn start_picks(st: &mut AutoDrawState, mut list: Vec<PickWhat>, ctx: &egui::Context) {
+    if list.is_empty() { return; }
+    let shot = crate::screen_pick::capture_native();
+    let (shot, scale) = match shot { Some(s) => (Some(s.img), s.scale), None => (None, 1.0) };
+    let mouse_img = shot.as_ref().map(|s| if (scale - 1.0).abs() < 0.01 { s.clone() } else { resize_box(s, ((s.width as f64) / scale).round() as usize, ((s.height as f64) / scale).round() as usize) });
+    let what = list.remove(0);
+    let candidates = match (&mouse_img, what) { (Some(s), PickWhat::ColorArea) => piccasso_core::tooldetect::detect_color_widgets(s), _ => vec![] };
+    let total = list.len() + 1;
+    st.pick = Some(Pick { what, queue: list, step: (0, total), shot, mouse_img, scale, tex: None, start: None, candidates, hover_canvas: None });
     ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(true));
+}
+
+/// Everything the current mode needs, in a sensible order (for the setup run).
+fn setup_steps(st: &AutoDrawState) -> Vec<PickWhat> {
+    let mut v = vec![PickWhat::Area];
+    if st.source == 3 {
+        v.push(PickWhat::Tool(Target::Brush));
+        if st.replica_lines { v.push(PickWhat::Tool(Target::LineBrush)); }
+        match st.opacity_mode {
+            OpacityMode::Slider => { v.push(PickWhat::Tool(Target::SliderZero)); v.push(PickWhat::Tool(Target::SliderFull)); }
+            OpacityMode::Buttons => {
+                if let Some((_, plan, _)) = &st.replica { for i in 0..plan.layers.len() { v.push(PickWhat::Tool(Target::Button(i))); } }
+                if st.replica_lines { v.push(PickWhat::Tool(Target::FullButton)); }
+            }
+            OpacityMode::None => {}
+        }
+        v.push(PickWhat::Tool(Target::SizeMin));
+        v.push(PickWhat::Tool(Target::SizeMax));
+        if st.colors > 0 {
+            if st.tools.color_mode == ColorMode::Hex { v.push(PickWhat::Tool(Target::HexField)); } else { v.push(PickWhat::ColorArea); }
+            v.push(PickWhat::Tool(Target::Swatch));
+        }
+        v.push(PickWhat::TestArea);
+    }
+    v
+}
+
+/// What the current mode still needs before it can draw (empty = ready).
+fn missing(st: &AutoDrawState) -> Vec<&'static str> {
+    let mut m = vec![];
+    if st.area.is_none() { m.push("the canvas"); }
+    if st.source == 3 {
+        match st.opacity_mode {
+            OpacityMode::Slider => { if st.tools.slider.iter().any(|p| p.is_none()) { m.push("the opacity slider"); } }
+            OpacityMode::Buttons => {
+                let n = st.replica.as_ref().map_or(0, |r| r.1.layers.len());
+                if (0..n).any(|i| st.tools.buttons.get(i).copied().flatten().is_none()) { m.push("the opacity buttons"); }
+            }
+            OpacityMode::None => {}
+        }
+        if st.colors > 0 && !st.tools.can_color() { m.push("the colour tools"); }
+    }
+    m
 }
 
 pub enum Msg {
@@ -382,13 +604,16 @@ mod pen {
         /// speed along the path is planned so the program (which reads the mouse
         /// only `READ_HZ` times a second and joins readings with straight lines)
         /// records the curve within half a pixel, pausing one reading only at
-        /// real corners. The mouse is updated every millisecond, so there are no
-        /// point-to-point jumps and no gaps.
+        /// real corners. The mouse is updated about four times per reading, so
+        /// there are no point-to-point jumps and no gaps.
         pub fn stroke(&mut self, pts: &[[f64; 2]]) -> Result<(), String> {
             self.check()?;
             let hz = super::READ_HZ.load(Ordering::Relaxed).max(20) as f64;
             let lim = piccasso_core::penpath::PenLimits { speed: self.speed, hz, tol: 0.5, ramp_px: 40.0 };
-            let dt = 0.001;
+            // about four mouse updates per program reading: smooth for the program,
+            // without flooding the system with 1000 events a second (that made PCs lag)
+            let dt = (0.25 / hz).clamp(0.002, 0.005);
+            let check_every = ((0.025 / dt).round() as usize).max(1);
             let timed = piccasso_core::penpath::timed_points(pts, &lim, dt);
             // pen down: the program must read the new position once (one reading
             // period), then the button press is an event it gets at once
@@ -412,7 +637,7 @@ mod pen {
                     self.go(q.0, q.1);
                     last = q;
                 }
-                if k % 25 == 0 && (self.moved() || self.cancel.load(Ordering::Relaxed)) {
+                if k % check_every == 0 && (self.moved() || self.cancel.load(Ordering::Relaxed)) {
                     let _ = self.e.button(Button::Left, Direction::Release);
                     return Err(STOPPED.into());
                 }
@@ -538,8 +763,9 @@ pub fn run_replica(plan: ReplicaPlan, org: [f64; 2], tools: Tools, mode: Opacity
         if tools.can_color() && state.0 != Some(want) {
             pen.select_color(&tools, want)?;
             state.0 = Some(want);
+            state.1 = None; // colour tools can switch the program to another tool (picker, bucket): select the brush again
         }
-        let brush = if fine { tools.line_brush.or(tools.brush) } else { tools.brush };
+        let brush = if fine { tools.line_brush.or(tools.brush) } else { tools.brush.or(tools.line_brush) };
         if state.1 != Some(fine) || tools.line_brush.is_none() {
             if let Some(b) = brush { pen.click(b)?; }
             state.1 = Some(fine);
@@ -589,6 +815,8 @@ pub fn run_replica(plan: ReplicaPlan, org: [f64; 2], tools: Tools, mode: Opacity
                 let _ = tx.send(Msg::Progress(done as f32 / total.max(1) as f32));
             }
         }
+        // leave the program on the brush, whatever tool the last step used
+        if let Some(b) = tools.brush.or(tools.line_brush) { pen.click(b)?; }
         Ok(())
     };
     let res = run();
@@ -598,7 +826,13 @@ pub fn run_replica(plan: ReplicaPlan, org: [f64; 2], tools: Tools, mode: Opacity
 pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
     let Some(sess) = app.session.as_mut() else { return };
     let st = &mut app.screen_state.autodraw;
-    if st.pick.is_some() { show_picker(st, &mut app.textures, ctx); return; }
+    if st.profiles.is_none() {
+        let f = load_profiles(&app.data_dir);
+        if let Some(p) = f.last.as_ref().and_then(|n| f.profiles.iter().find(|p| &p.name == n)).cloned() { st.apply_profile(&p); }
+        st.profiles = Some(f);
+    }
+    if std::mem::take(&mut st.save_profile_soon) { st.save_profile(&app.data_dir); }
+    if st.pick.is_some() { show_picker(st, ctx); return; }
     let Some(a) = sess.project.analysis.clone() else { return };
     let aspect = a.aspect;
     let mut back = false;
@@ -708,6 +942,85 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                 ui.colored_label(Color32::from_rgb(0xa2, 0x4d, 0x1c), "This build has no mouse control (enable the `autodraw` feature).");
             }
             ui.add_space(6.0);
+            let can_pick = st.run.is_none() && st.capture.is_none() && cfg!(feature = "autodraw");
+            let (mut load, mut save_as, mut delete) = (None::<String>, false, false);
+            egui::Frame::new().fill(ui.visuals().faint_bg_color).corner_radius(8.0).inner_margin(10.0).show(ui, |ui| {
+                ui.label(RichText::new("Quick draw").size(18.0).strong());
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Profile:");
+                    let names: Vec<String> = st.profiles.as_ref().map(|f| f.profiles.iter().map(|p| p.name.clone()).collect()).unwrap_or_default();
+                    egui::ComboBox::from_id_salt("ad-profile").selected_text(if st.profile.is_empty() { "(none yet)".to_string() } else { st.profile.clone() }).show_ui(ui, |ui| {
+                        for n in &names { if ui.selectable_label(*n == st.profile, n).clicked() { load = Some(n.clone()); } }
+                        if names.is_empty() { ui.label(RichText::new("Your setup is saved here automatically.").weak()); }
+                    });
+                    ui.add(egui::TextEdit::singleline(&mut st.new_profile).hint_text("New profile name").desired_width(130.0));
+                    if ui.add_enabled(!st.new_profile.trim().is_empty(), egui::Button::new("Save as new")).clicked() { save_as = true; }
+                    if !st.profile.is_empty() && ui.small_button("Delete").on_hover_text("Delete this profile").clicked() { delete = true; }
+                });
+                ui.label(RichText::new("A profile remembers the canvas size and place, every tool position (sliders, brushes, colours) and the speed, for one drawing program. Changes save automatically.").small().weak());
+                ui.add_space(4.0);
+                ui.horizontal_wrapped(|ui| {
+                    match st.area { Some(a) => ui.label(format!("Canvas: {:.0} × {:.0} px at {:.0}, {:.0}", a[2], a[3], a[0], a[1])), None => ui.label(RichText::new("Canvas: not chosen yet").color(Color32::from_rgb(0xef, 0x6c, 0x00))) };
+                    if ui.add_enabled(can_pick, egui::Button::new(if st.area.is_none() { "Select canvas" } else { "Change" })).on_hover_text("Shows your screen: click inside the canvas, or drag a box").clicked() { start_pick(st, PickWhat::Area, ctx); }
+                });
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Draw:");
+                    ui.selectable_value(&mut st.source, 1, "Outline");
+                    ui.selectable_value(&mut st.source, 2, "Line art");
+                    ui.selectable_value(&mut st.source, 3, "Exact replica (shading)");
+                });
+                if st.source == 3 {
+                    if ui.add_enabled(can_pick, egui::Button::new("Set up tools step by step")).on_hover_text("One full-screen run: click the canvas, then each tool in turn. Press S to skip an optional one.").clicked() { let steps = setup_steps(st); start_picks(st, steps, ctx); }
+                }
+                let miss = missing(st);
+                if !miss.is_empty() { ui.label(RichText::new(format!("Still needed: {}", miss.join(", "))).color(Color32::from_rgb(0xef, 0x6c, 0x00))); }
+                if st.run.is_some() {
+                    ui.add(egui::ProgressBar::new(st.progress).show_percentage());
+                    if ui.button("Stop").clicked() { if let Some((_, c)) = &st.run { c.store(true, Ordering::Relaxed); } }
+                } else if ui.add_enabled(missing(st).iter().all(|m| *m != "the canvas") && st.area.is_some() && (if st.source == 3 { st.replica.is_some() && st.replica_rx.is_none() } else { !paths.is_empty() }) && cfg!(feature = "autodraw"), egui::Button::new(RichText::new("Draw now").color(Color32::WHITE).strong()).fill(crate::ui::ACCENT).min_size(vec2(0.0, 42.0))).clicked() {
+                    st.save_profile_soon = true;
+                    #[cfg(feature = "autodraw")]
+                    if st.source == 3 {
+                        let (tx, rx) = channel();
+                        let cancel = Arc::new(AtomicBool::new(false));
+                        let f = fit_into(st.area.unwrap(), aspect);
+                        let (plan, tools, mode, sp, c2) = (st.replica.as_ref().unwrap().1.clone(), st.tools.clone(), st.opacity_mode, st.speed, cancel.clone());
+                        let rec = st.timelapse.then(|| (crate::timelapse::output_dir(&app.data_dir), area_i32(st.area.unwrap())));
+                        std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(900)); with_timelapse(rec, tx, |tx| run_replica(plan, [f[0].round(), f[1].round()], tools, mode, sp, c2, tx)) });
+                        st.run = Some((rx, cancel));
+                        st.progress = 0.0;
+                        st.status = "Drawing the replica… move the mouse to stop.".into();
+                        minimize = Some(true);
+                    } else {
+                        let (tx, rx) = channel();
+                        let cancel = Arc::new(AtomicBool::new(false));
+                        let (p2, ar, sp, c2) = (paths.clone(), st.area.unwrap(), st.speed, cancel.clone());
+                        let rec = st.timelapse.then(|| (crate::timelapse::output_dir(&app.data_dir), area_i32(ar)));
+                        std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(900)); with_timelapse(rec, tx, |tx| run_drawing(p2, ar, aspect, sp, c2, tx)) });
+                        st.run = Some((rx, cancel));
+                        st.progress = 0.0;
+                        st.status = "Drawing… move the mouse to stop.".into();
+                        minimize = Some(true);
+                    }
+                }
+                if let Some(ar) = st.area {
+                    let scale = fit_into(ar, aspect)[3];
+                    let secs = (down * scale) / st.speed + paths.len() as f64 * 0.03 + (up * scale) * 0.0;
+                    ui.label(RichText::new(format!("Estimated time: about {:.0} s", secs.max(1.0))).weak());
+                }
+            });
+            if let Some(n) = load {
+                if let Some(p) = st.profiles.as_ref().and_then(|f| f.profiles.iter().find(|p| p.name == n)).cloned() { st.apply_profile(&p); st.save_profile_soon = true; st.status = format!("Profile “{n}” loaded."); }
+            }
+            if save_as { st.profile = st.new_profile.trim().to_string(); st.new_profile.clear(); st.save_profile_soon = true; st.status = format!("Saved as “{}”.", st.profile); }
+            if delete {
+                let n = std::mem::take(&mut st.profile);
+                if let Some(f) = st.profiles.as_mut() { f.profiles.retain(|p| p.name != n); f.last = None; save_profiles(&app.data_dir, f); }
+                st.status = format!("Profile “{n}” deleted.");
+            }
+            ui.add_space(6.0);
+            egui::CollapsingHeader::new(RichText::new("All settings").strong()).default_open(false).show(ui, |ui| {
+            ui.add_space(6.0);
             ui.strong("1. What to draw");
             ui.radio_value(&mut st.source, 0, "Main outline only (fastest)");
             ui.radio_value(&mut st.source, 1, "Outline and inner shapes");
@@ -796,6 +1109,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                 let mut pick_box: Option<PickWhat> = None;
                 let mut calibrate = false;
                 let mut detect = false;
+                let mut clear: Option<Target> = None;
                 let mut tool_btn = |ui: &mut egui::Ui, t: Target, label: &str, val: Option<(i32, i32)>, capture: Option<(Target, Instant)>| {
                     let text = match (capture, val) {
                         (Some((c, t0)), _) if c == t => format!("Hover now… {}", 3 - t0.elapsed().as_secs().min(3)),
@@ -805,10 +1119,12 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                     ui.horizontal(|ui| {
                         if ui.add_enabled(can, egui::Button::new(text)).on_hover_text("Click, then hold the mouse over the tool for 3 seconds").clicked() { cap = Some(t); }
                         if ui.add_enabled(can, egui::Button::new("Pick on screen")).on_hover_text("Shows your screen full-size: click the tool").clicked() { pick_tool = Some(t); }
+                        if val.is_some() && ui.add_enabled(can, egui::Button::new("✖")).on_hover_text("Remove: Piccasso won't click this").clicked() { clear = Some(t); }
                     });
                 };
-                tool_btn(ui, Target::Brush, "Fill brush button (optional)", st.tools.brush, st.capture);
-                tool_btn(ui, Target::LineBrush, "Line brush button (optional)", st.tools.line_brush, st.capture);
+                tool_btn(ui, Target::Brush, "Brush for shading (optional)", st.tools.brush, st.capture);
+                tool_btn(ui, Target::LineBrush, "Brush for lines (optional)", st.tools.line_brush, st.capture);
+                ui.label(RichText::new("Pick paint brushes here, not the fill bucket. After choosing a colour (or anything that changes the tool), and when it finishes, Piccasso clicks the brush again.").small().weak());
                 ui.horizontal(|ui| {
                     ui.label("Opacity:");
                     ui.selectable_value(&mut st.opacity_mode, OpacityMode::Slider, "Slider");
@@ -817,10 +1133,8 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                 });
                 match st.opacity_mode {
                     OpacityMode::Slider => {
-                        ui.horizontal(|ui| {
-                            tool_btn(ui, Target::SliderZero, "Slider at 0%", st.tools.slider[0], st.capture);
-                            tool_btn(ui, Target::SliderFull, "Slider at 100%", st.tools.slider[1], st.capture);
-                        });
+                        tool_btn(ui, Target::SliderZero, "Slider at 0%", st.tools.slider[0], st.capture);
+                        tool_btn(ui, Target::SliderFull, "Slider at 100%", st.tools.slider[1], st.capture);
                         ui.label(RichText::new("Piccasso clicks along the slider at each shade's opacity.").small().weak());
                     }
                     OpacityMode::Buttons => {
@@ -857,6 +1171,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                 ui.horizontal(|ui| {
                     let label = match st.tools.test_area { Some(a) => format!("Test spot ✔ ({}×{})", a[2], a[3]), None => "Choose empty test spot".into() };
                     if ui.add_enabled(can, egui::Button::new(label)).clicked() { pick_box = Some(PickWhat::TestArea); }
+                    if st.tools.test_area.is_some() && ui.add_enabled(can, egui::Button::new("✖")).on_hover_text("Remove the test spot").clicked() { st.tools.test_area = None; st.save_profile_soon = true; }
                     let ready = st.tools.test_area.is_some() && st.tools.size_slider.iter().all(|p| p.is_some()) && st.cal_rx.is_none();
                     if ui.add_enabled(can && ready, egui::Button::new("Measure brush sizes")).clicked() { calibrate = true; }
                 });
@@ -899,6 +1214,7 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
                     tool_btn(ui, Target::Swatch, "Current-colour swatch (optional, checks the colour)", st.tools.swatch, st.capture);
                 }
                 if let Some(t) = cap { st.capture = Some((t, Instant::now())); }
+                if let Some(t) = clear { st.clear_target(t); st.save_profile_soon = true; }
                 if let Some(t) = pick_tool { start_pick(st, PickWhat::Tool(t), ctx); }
                 if let Some(w) = pick_box { start_pick(st, w, ctx); }
                 if detect {
@@ -960,44 +1276,12 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
             let mut dwell = DWELL_MS.load(Ordering::Relaxed);
             if ui.add(egui::Slider::new(&mut dwell, 0..=80).text("Extra pause at pen down (ms)")).on_hover_text("Extra time for programs that miss the start of strokes. 0 is right for most.").changed() { DWELL_MS.store(dwell, Ordering::Relaxed); }
             ui.checkbox(&mut st.timelapse, "Record a timelapse (animated GIF)").on_hover_text("Captures the drawing area twice a second while Piccasso draws, then saves a 15-second GIF in Pictures/Piccasso.");
-            if let Some(ar) = st.area {
-                let scale = fit_into(ar, aspect)[3];
-                let secs = (down * scale) / st.speed + paths.len() as f64 * 0.03 + (up * scale) * 0.0;
-                ui.label(RichText::new(format!("Estimated time: about {:.0} s", secs.max(1.0))).weak());
-            }
+            });
             ui.add_space(6.0);
             egui::Frame::new().fill(ui.visuals().faint_bg_color).corner_radius(8.0).inner_margin(8.0).show(ui, |ui| {
                 ui.label(RichText::new("Safety: Piccasso minimises itself while drawing. To stop at any moment, just move the mouse — it stops instantly and releases the button. Use a blank canvas and pick a brush first.").small());
             });
             ui.add_space(6.0);
-            if st.run.is_some() {
-                ui.add(egui::ProgressBar::new(st.progress).show_percentage());
-                if ui.button("Stop").clicked() { if let Some((_, c)) = &st.run { c.store(true, Ordering::Relaxed); } }
-            } else if ui.add_enabled(st.area.is_some() && (if st.source == 3 { st.replica.is_some() && st.replica_rx.is_none() } else { !paths.is_empty() }) && cfg!(feature = "autodraw"), egui::Button::new(RichText::new("Start drawing").color(Color32::WHITE).strong()).fill(crate::ui::ACCENT).min_size(vec2(0.0, 42.0))).clicked() {
-                #[cfg(feature = "autodraw")]
-                if st.source == 3 {
-                    let (tx, rx) = channel();
-                    let cancel = Arc::new(AtomicBool::new(false));
-                    let f = fit_into(st.area.unwrap(), aspect);
-                    let (plan, tools, mode, sp, c2) = (st.replica.as_ref().unwrap().1.clone(), st.tools.clone(), st.opacity_mode, st.speed, cancel.clone());
-                    let rec = st.timelapse.then(|| (crate::timelapse::output_dir(&app.data_dir), area_i32(st.area.unwrap())));
-                    std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(900)); with_timelapse(rec, tx, |tx| run_replica(plan, [f[0].round(), f[1].round()], tools, mode, sp, c2, tx)) });
-                    st.run = Some((rx, cancel));
-                    st.progress = 0.0;
-                    st.status = "Drawing the replica… move the mouse to stop.".into();
-                    minimize = Some(true);
-                } else {
-                    let (tx, rx) = channel();
-                    let cancel = Arc::new(AtomicBool::new(false));
-                    let (p2, ar, sp, c2) = (paths.clone(), st.area.unwrap(), st.speed, cancel.clone());
-                    let rec = st.timelapse.then(|| (crate::timelapse::output_dir(&app.data_dir), area_i32(ar)));
-                    std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(900)); with_timelapse(rec, tx, |tx| run_drawing(p2, ar, aspect, sp, c2, tx)) });
-                    st.run = Some((rx, cancel));
-                    st.progress = 0.0;
-                    st.status = "Drawing… move the mouse to stop.".into();
-                    minimize = Some(true);
-                }
-            }
             if !st.status.is_empty() { ui.label(RichText::new(&st.status).strong()); }
             if let Some(p) = st.timelapse_file.clone() {
                 ui.horizontal_wrapped(|ui| {
@@ -1039,6 +1323,8 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
     if let Some(m) = minimize { ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(m)); if !m { ctx.send_viewport_cmd(egui::ViewportCommand::Focus); } }
     if st.capture.is_some() && st.capture.unwrap().1.elapsed() < Duration::from_millis(150) { /* keep window visible so the user sees the countdown */ }
     if back {
+        app.screen_state.autodraw.save_profile(&app.data_dir);
+        let st = &mut app.screen_state.autodraw;
         if let Some((_, c)) = &st.run { c.store(true, Ordering::Relaxed); }
         app.screen_state.autodraw = Default::default();
         app.go(Screen::Workspace);
