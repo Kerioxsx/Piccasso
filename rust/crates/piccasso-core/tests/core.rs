@@ -355,6 +355,13 @@ fn pen_timing_keeps_sampled_strokes_on_the_path() {
         // straight runs still go fast: total time well below a fixed-dwell pen
         assert!(t.len() as f64 * 0.001 < 3.0, "too slow");
     }
+    // the desktop app updates the mouse every ~4 ms (not every 1 ms) so it doesn't flood the system: just as exact
+    for path in [&circle, &zig, &serp] {
+        let dt = 0.25 / lim.hz;
+        let t = timed_points(path, &lim, dt);
+        let err = sampled_error(path, &t, dt, lim.hz);
+        assert!(err <= 1.0, "sampled error at {dt} s steps: {err}");
+    }
     // a corner whose point is listed twice must still be held (it was skipped once)
     let dup = vec![[0.0, 0.0], [70.0, 0.0], [70.0, 0.0], [70.0, 4.0], [0.0, 4.0], [0.0, 4.0], [0.0, 8.0], [70.0, 8.0]];
     let t = timed_points(&dup, &lim, 0.001);

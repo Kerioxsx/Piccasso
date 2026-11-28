@@ -17,19 +17,11 @@ pub struct Recorder {
     handle: Option<std::thread::JoinHandle<()>>,
 }
 
-fn crop(img: &Rgba, a: [i32; 4]) -> Option<Rgba> {
-    let x0 = a[0].clamp(0, img.width as i32 - 1) as usize;
-    let y0 = a[1].clamp(0, img.height as i32 - 1) as usize;
-    let x1 = ((a[0] + a[2]) as usize).min(img.width);
-    let y1 = ((a[1] + a[3]) as usize).min(img.height);
-    if x1 <= x0 + 1 || y1 <= y0 + 1 { return None; }
-    let (w, h) = (x1 - x0, y1 - y0);
-    let mut data = vec![0u8; w * h * 4];
-    for y in 0..h {
-        let s = ((y0 + y) * img.width + x0) * 4;
-        data[y * w * 4..(y + 1) * w * 4].copy_from_slice(&img.data[s..s + w * 4]);
-    }
-    let out = Rgba { width: w, height: h, data };
+/// Grab only the drawing area (cheap), shrunk to the GIF size.
+fn grab(a: [i32; 4]) -> Option<Rgba> {
+    let out = crate::screen_pick::capture_region(a)?;
+    let (w, h) = (out.width, out.height);
+    if w < 2 || h < 2 { return None; }
     let m = w.max(h);
     Some(if m > MAX_SIDE { resize_box(&out, w * MAX_SIDE / m, h * MAX_SIDE / m) } else { out })
 }
@@ -43,7 +35,7 @@ impl Recorder {
         let handle = std::thread::spawn(move || {
             while !s2.load(Ordering::Relaxed) {
                 let t0 = Instant::now();
-                if let Some(f) = crate::screen_pick::capture_screen().and_then(|shot| crop(&shot, area)) {
+                if let Some(f) = grab(area) {
                     let mut v = f2.lock().unwrap();
                     v.push(f);
                     if v.len() > MAX_FRAMES { // keep every other frame
@@ -65,7 +57,7 @@ impl Recorder {
         self.stop.store(true, Ordering::Relaxed);
         if let Some(h) = self.handle.take() { let _ = h.join(); }
         let mut v = std::mem::take(&mut *self.frames.lock().unwrap());
-        if let Some(f) = crate::screen_pick::capture_screen().and_then(|shot| crop(&shot, area)) { v.push(f); }
+        if let Some(f) = grab(area) { v.push(f); }
         v
     }
 }

@@ -185,7 +185,7 @@ pub fn stroke_width(img: &Rgba, x: i32, y: i32, paper: [u8; 3], ink: [u8; 3], ma
 /// Measured brush widths along a size slider: (slider position 0..1, width px),
 /// sorted by position. Works for any slider shape (linear, squared, logarithmic)
 /// because nothing is assumed about the numbers it shows.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub struct SizeCurve { pub points: Vec<(f64, f64)> }
 
 impl SizeCurve {
@@ -287,4 +287,37 @@ pub fn score_stroke(before: &Rgba, after: &Rgba, path: &[[f64; 2]], band: f64) -
 /// assumed, top speed in px/s).
 pub fn speed_trials() -> Vec<(f64, f64)> {
     vec![(1000.0, 24000.0), (500.0, 16000.0), (250.0, 10000.0), (125.0, 7000.0), (60.0, 5000.0), (30.0, 3000.0)]
+}
+
+/// The canvas under the cursor: the box around the evenly coloured region that
+/// contains `(x, y)` (flood fill with a small tolerance, on a reduced copy for
+/// speed). Returns `[x, y, w, h]` in `img` pixels when the region is big and
+/// box-shaped enough to be a drawing canvas, else None.
+pub fn canvas_at(img: &Rgba, x: i32, y: i32) -> Option<Area> {
+    let k = (img.width.max(img.height) as f64 / 720.0).max(1.0);
+    let (w, h) = (((img.width as f64) / k).floor() as usize, ((img.height as f64) / k).floor() as usize);
+    if w < 8 || h < 8 { return None; }
+    let (cx, cy) = (((x as f64) / k) as i64, ((y as f64) / k) as i64);
+    if cx < 0 || cy < 0 || cx >= w as i64 || cy >= h as i64 { return None; }
+    let px = |i: usize| { let (sx, sy) = (((i % w) as f64 * k) as usize, ((i / w) as f64 * k) as usize); let j = (sy.min(img.height - 1) * img.width + sx.min(img.width - 1)) * 4; [img.data[j] as i32, img.data[j + 1] as i32, img.data[j + 2] as i32] };
+    let start = cy as usize * w + cx as usize;
+    let seed = px(start);
+    let near = |c: [i32; 3]| (c[0] - seed[0]).abs() + (c[1] - seed[1]).abs() + (c[2] - seed[2]).abs() <= 18;
+    let mut seen = vec![false; w * h];
+    let mut stack = vec![start];
+    seen[start] = true;
+    let (mut x0, mut y0, mut x1, mut y1, mut n) = (w, h, 0usize, 0usize, 0usize);
+    while let Some(i) = stack.pop() {
+        let (ix, iy) = (i % w, i / w);
+        n += 1; x0 = x0.min(ix); y0 = y0.min(iy); x1 = x1.max(ix); y1 = y1.max(iy);
+        let mut push = |j: usize| { if !seen[j] && near(px(j)) { seen[j] = true; stack.push(j); } };
+        if ix > 0 { push(i - 1); } if ix + 1 < w { push(i + 1); }
+        if iy > 0 { push(i - w); } if iy + 1 < h { push(i + w); }
+    }
+    let (bw, bh) = (x1 - x0 + 1, y1 - y0 + 1);
+    let fill = n as f64 / (bw * bh) as f64;
+    let share = (bw * bh) as f64 / (w * h) as f64;
+    // a canvas: at least 2% of the screen, not the whole screen, mostly filled (strokes on it are fine)
+    if share < 0.02 || share > 0.97 || fill < 0.6 || bw < 30 || bh < 30 { return None; }
+    Some([(x0 as f64 * k).round() as i32, (y0 as f64 * k).round() as i32, (bw as f64 * k).round() as i32, (bh as f64 * k).round() as i32])
 }

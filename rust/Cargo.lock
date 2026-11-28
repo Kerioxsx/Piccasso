@@ -3294,6 +3294,7 @@ name = "piccasso-app"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "core-graphics 0.24.0",
  "directories",
  "eframe",
  "egui",
@@ -3314,6 +3315,7 @@ dependencies = [
  "tar",
  "tiny_http",
  "ureq",
+ "windows-sys 0.59.0",
  "x11rb",
  "zip",
 ]

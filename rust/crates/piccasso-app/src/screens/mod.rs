@@ -83,7 +83,8 @@ pub fn show(app: &mut PiccassoApp, ctx: &egui::Context) {
     if needs_project && app.session.is_none() {
         app.screen = Screen::Home;
     }
-    if !matches!(app.screen, Screen::Locked | Screen::Overlay) {
+    let picking = app.screen == Screen::AutoDraw && app.screen_state.autodraw.pick.is_some();
+    if !matches!(app.screen, Screen::Locked | Screen::Overlay) && !picking {
         top_bar(app, ctx);
         update_banner(app, ctx);
     }
